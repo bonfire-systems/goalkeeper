@@ -7,7 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.5] - 2026-05-10
+## [0.1.6] - 2026-05-10
+
+**Plumbing release — required for `/plugin install` to work.** Verified
+against installed plugins on disk (caveman, ralph-loop) before
+restructure. No skill behavior changes.
+
+### Changed
+
+- Skills restructured from flat `skills/<name>.md` to the official
+  Claude Code plugin layout `skills/<name>/SKILL.md`. All 7 skills
+  moved via `git mv` to preserve history. Required because Claude
+  Code discovers skills at `<plugin-root>/skills/<name>/SKILL.md`
+  and ignores flat `.md` files inside `skills/`.
+- `README.md` install section rewritten. The previous instructions
+  (`/plugin install itsuzef/goalkeeper`) wouldn't have worked —
+  Claude Code requires marketplace registration first. New flow:
+  ```bash
+  /plugin marketplace add itsuzef/goalkeeper
+  /plugin install goalkeeper@goalkeeper
+  ```
+- README documents the namespace-prefix invocation pattern
+  (`/goalkeeper:goal "<obj>"`) and a recommended `~/.claude/settings.json`
+  alias block for users who want shorter commands.
+
+### Added
+
+- `.claude-plugin/marketplace.json` — required for `/plugin marketplace
+  add` discovery. Lists goalkeeper as a single-plugin marketplace
+  pointing at the repo root. Modeled on the structure of installed
+  plugins on the developer's machine.
+
+### Why this wasn't caught earlier
+
+The four prior dogfood runs (chain, rejection cycle, lifecycle,
+schema audit) were all manual walkthroughs of the skill *content* —
+they verified that the skill markdown bodies produced correct state
+transitions when followed. None of them exercised Claude Code's
+*discovery* of those skills, because we were running the skills
+manually rather than installing the plugin. The fifth release-readiness
+gate was "compare on-disk structure to a real installed plugin," which
+caught the layout divergence.
+
+
 
 Verification release: comprehensive lifecycle dogfood (pause / resume /
 resume-from-needs_human / clear / chain-abort) revealed one small spec

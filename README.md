@@ -12,18 +12,33 @@ goalkeeper adds a second gate. After your validator passes, a fresh subagent —
 
 ## Install
 
+Add the goalkeeper marketplace, then install the plugin:
+
 ```bash
 # inside Claude Code
-/plugin install itsuzef/goalkeeper
+/plugin marketplace add itsuzef/goalkeeper
+/plugin install goalkeeper@goalkeeper
 ```
 
-Or clone manually and add to your plugins:
+Skills become available under the `goalkeeper:` namespace. Invoke as `/goalkeeper:goal "<objective>"`, `/goalkeeper:goal-prep`, `/goalkeeper:goal-judge`, etc. (Most users alias the namespace away — see "Aliasing" below.)
 
-```bash
-git clone https://github.com/itsuzef/goalkeeper ~/.claude/plugins/goalkeeper
+### Aliasing the namespace
+
+If you primarily use goalkeeper and want shorter commands, add aliases to `~/.claude/settings.json`:
+
+```json
+{
+  "aliases": {
+    "/goal": "/goalkeeper:goal",
+    "/goal-prep": "/goalkeeper:goal-prep",
+    "/goal-pause": "/goalkeeper:goal-pause",
+    "/goal-resume": "/goalkeeper:goal-resume",
+    "/goal-clear": "/goalkeeper:goal-clear",
+    "/goal-judge": "/goalkeeper:goal-judge",
+    "/goal-chain": "/goalkeeper:goal-chain"
+  }
+}
 ```
-
-Restart your Claude Code session. The skills appear as `/goal`, `/goal-prep`, etc.
 
 ## Quick start
 
