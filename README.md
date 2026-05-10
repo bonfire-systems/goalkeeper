@@ -1,5 +1,7 @@
 # goalkeeper
 
+[![test](https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml/badge.svg)](https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml)
+
 Durable, contract-driven goal execution for [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Set a goal once, walk away, come back to a finished task — or a clear list of why it isn't done yet.
 
 Inspired by [OpenAI Codex `/goal`](https://developers.openai.com/codex/use-cases/follow-goals) and Geoffrey Huntley's [Ralph loop](https://ghuntley.com/ralph/), with one key addition: a **subagent judge** that gates completion against an explicit Definition of Done.
