@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/itsuzef/goalkeeper/schemas/contract.schema.json",
+  "title": "Goalkeeper Contract",
+  "description": "Frontmatter schema for a goalkeeper contract.md file. The body of the contract.md (after frontmatter) is free-form context, file pointers, and constraints in the spirit of a Ralph PROMPT.md.",
+  "type": "object",
+  "required": [
+    "slug",
+    "objective",
+    "definition_of_done",
+    "validator"
+  ],
+  "properties": {
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,63}$",
+      "description": "Unique kebab-case identifier. Used as the directory name under .claude/goals/."
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 10,
+      "description": "One-sentence statement of what success looks like."
+    },
+    "non_goals": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Explicit out-of-scope items. Prevents scope drift."
+    },
+    "definition_of_done": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "Qualitative + quantitative criteria the judge checks against. Necessary AND sufficient."
+    },
+    "validator": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Shell command run after each checkpoint. Necessary but not sufficient — judge gates final approval."
+        },
+        "success": {
+          "type": "string",
+          "default": "exit_zero",
+          "description": "exit_zero | regex:<pattern>. How to interpret command output."
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 600
+        }
+      }
+    },
+    "checkpoint_cadence": {
+      "type": "string",
+      "default": "every 10 edits OR every 30 minutes",
+      "description": "When to log progress and run validator."
+    },
+    "max_rejections": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 5,
+      "description": "After N consecutive judge rejections, status becomes needs_human and execution pauses."
+    },
+    "judge_mode": {
+      "type": "string",
+      "enum": ["subagent", "inline"],
+      "default": "subagent",
+      "description": "subagent: spawn a fresh agent for clean-context gating. inline: cheap re-read with current context (advisory only)."
+    },
+    "wakeup_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 3600,
+      "description": "Override the default ScheduleWakeup delay between iterations."
+    }
+  }
+}
