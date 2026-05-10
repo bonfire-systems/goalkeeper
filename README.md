@@ -103,6 +103,7 @@ Schema: [`schemas/contract.schema.json`](./schemas/contract.schema.json).
 - **max_rejections** — default 5. After this many judge rejections, pauses for human.
 - **judge_mode** — `subagent` (default, gate-quality) or `inline` (cheap, advisory only).
 - **wakeup_seconds** — between-iteration delay. Tune to validator runtime; goalkeeper picks cache-aware default if unset.
+- **diff_excludes** — additional pathspec globs the judge should ignore. Appended to defaults (lockfiles, `dist/`, `build/`, `coverage/`, IDE files). Add per-repo noise like generated migrations or vendor trees.
 
 ## Chains
 
@@ -136,7 +137,7 @@ Each slug must already have a contract at `.claude/goals/<slug>/contract.md`. Ru
   .gitignore                     # ignores all goal dirs except shared/ (opt-in)
   <slug>/
     contract.md                  # the spec
-    state.json                   # status, rejection_count, last validator/judge results
+    state.json                   # status, rejection_count, started_at_commit (git baseline), last validator/judge results
     log.md                       # append-only checkpoint + verdict log
   _archive/                      # cleared goals (moved, never deleted)
   shared/                        # opt-in committed contracts for team sharing

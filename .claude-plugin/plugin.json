@@ -1,6 +1,6 @@
 {
   "name": "goalkeeper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Durable goal-following for Claude Code: contracts with definition-of-done, subagent judge gates, and linear chains. Inspired by OpenAI Codex /goal and the Ralph loop pattern.",
   "author": {
     "name": "Youssef Hemimy",

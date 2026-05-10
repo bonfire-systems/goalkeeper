@@ -74,6 +74,11 @@
       "minimum": 60,
       "maximum": 3600,
       "description": "Override the default ScheduleWakeup delay between iterations."
+    },
+    "diff_excludes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Additional pathspec globs to exclude from the judge's diff context. Appended to goalkeeper's defaults (lockfiles, build outputs, coverage, IDE files). Use when your repo produces noisy auto-generated files outside the standard list."
     }
   }
 }

@@ -38,12 +38,15 @@ You are operating the **goalkeeper** skill — durable, contract-driven goal exe
 
 3. **Activate:**
    - Ensure `.claude/goals/` exists. If creating it for the first time, also create `.claude/goals/.gitignore` containing `*` and `!shared/` and `!.gitignore` so personal goals stay private but a `shared/` subdir can be opt-in committed.
+   - **Capture the git baseline.** If the working directory is a git repo (`git rev-parse --is-inside-work-tree` succeeds), capture `git rev-parse HEAD` as the goal's diff origin. If the tree is dirty, also capture `git status --porcelain` as a snapshot of the dirty paths so the judge can distinguish goal work from pre-existing changes. If not in a git repo, set both fields to `null`.
    - Write `.claude/goals/<slug>/state.json`:
      ```json
      {
        "status": "active",
        "rejection_count": 0,
        "started_at": "<ISO8601 now>",
+       "started_at_commit": "<git rev-parse HEAD or null>",
+       "started_at_dirty_paths": ["<paths from git status --porcelain at activation>"],
        "last_checkpoint_at": null,
        "last_validator_result": null,
        "last_judge_verdict": null
@@ -54,6 +57,7 @@ You are operating the **goalkeeper** skill — durable, contract-driven goal exe
      ```
      ## <ISO8601> — activated
      Starting work on: <objective>
+     Baseline commit: <short SHA or "no-git">
      ```
 
 4. **Begin the execution loop** (next section).

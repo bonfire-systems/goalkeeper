@@ -10,8 +10,26 @@ You are operating the **goal-judge** skill — the gate that decides whether a g
 - `.claude/goals/active.json` → `<slug>`
 - `.claude/goals/<slug>/contract.md` (especially `definition_of_done`)
 - `.claude/goals/<slug>/log.md` (the full progress log)
-- `git diff` since the goal started (or `git status` if not in a git repo)
+- `state.started_at_commit` — git baseline captured at activation; use as the diff origin
+- `state.started_at_dirty_paths` — paths that were already dirty at activation; the judge should NOT credit/blame those
 - `args` — optional: `--mode=inline|subagent` to override `judge_mode` from contract
+
+## Compute the diff scope
+
+Run `git diff <state.started_at_commit>..HEAD` AND `git diff` (working tree) to capture both committed and uncommitted goal work. If `started_at_commit` is null (not a git repo), fall back to `git status` if available, otherwise note "no-git".
+
+**Default exclusion globs** — apply via `git diff -- ':!<glob>'` to keep noise out of the judge's context:
+
+- Lockfiles: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`, `go.sum`, `Gemfile.lock`, `composer.lock`
+- Build outputs: `dist/`, `build/`, `out/`, `target/`, `.next/`, `*.min.js`, `*.min.css`
+- Test/coverage: `coverage/`, `.nyc_output/`, `test-results/`
+- IDE/editor: `.vscode/`, `.idea/`, `.DS_Store`
+
+If the contract has a `diff_excludes` field, append those globs as well.
+
+If the contract has a `diff_includes` field (rare — for narrowing), prefer that over the default-minus-excludes.
+
+**Pre-existing-dirt subtraction:** any file in `state.started_at_dirty_paths` that the judge sees in the diff should be flagged as "pre-existing — verify these changes belong to the goal." Don't auto-credit them as goal work.
 
 ## Decide execution mode
 
@@ -21,12 +39,15 @@ You are operating the **goal-judge** skill — the gate that decides whether a g
 
 ## Subagent mode
 
-Spawn the agent with a self-contained prompt. The subagent has not seen this conversation — give it everything it needs:
+Spawn the agent with a self-contained prompt. The subagent has not seen this conversation — give it everything it needs.
 
-- The full text of `contract.md` (objective, non-goals, definition_of_done, validator)
-- The full text of `log.md`
-- The output of `git diff` from the goal's `started_at` baseline (find the commit at activation time, or use `git diff` if work is uncommitted)
-- A clear question: "Does the work meet every Definition of Done criterion? Output a verdict."
+Before constructing the prompt, compute:
+- The diff (per "Compute the diff scope" above), with default + contract exclusions applied
+- The list of files modified or added by the goal, derived from `git diff --name-only` over the same scope
+
+The judge subagent must do BOTH of these — diffs lose context (renames, surrounding code, file-level structure):
+1. **Read the diff** for an overview of what changed
+2. **Read each modified/added file end-to-end** via the Read tool to verify behavior, not just surface
 
 Use this prompt template (fill in the bracketed sections):
 
@@ -41,16 +62,30 @@ You are an independent judge reviewing a goalkeeper goal. You have not seen the 
 
 [paste log.md verbatim]
 
-# Code changes (git diff)
+# Diff scope
 
-[paste git diff output, or "No git repo — review the contract+log only" if not a git repo]
+Baseline: [started_at_commit short SHA or "no-git"]
+Default + contract exclusions applied (lockfiles, build outputs, coverage, IDE files).
+Pre-existing dirty paths at activation (do NOT credit as goal work, but flag if any goal work touched them):
+  [list from state.started_at_dirty_paths, or "none"]
+
+# Files modified or added since baseline
+
+[absolute path list, one per line]
+
+# Diff (excerpt)
+
+[paste filtered git diff output, or "No git repo — review log + files only" if not a git repo]
 
 # Your task
 
-For each item in `definition_of_done`, decide whether it is met. Be strict:
-- A criterion is "met" only if the diff or log demonstrates it concretely. "Probably done" = not met.
+For each item in `definition_of_done`, decide whether it is met. Use BOTH the diff above AND the Read tool to read each modified/added file in full — diffs hide context. Be strict:
+
+- A criterion is "met" only if the diff or files demonstrate it concretely. "Probably done" = not met.
 - Watch for placeholders, stubs, .todo markers, skipped tests, commented-out work, or "TODO: real implementation" comments. These are AUTOMATIC rejection regardless of validator status.
+- Watch for tests that assert on existence rather than behavior (`expect(fn).toBeDefined()` is not a test).
 - Watch for non-goal violations — the contract's `non_goals` list is binding.
+- Watch for changes to pre-existing dirty paths that may not be the goal's intent.
 - The validator passing is necessary but NOT sufficient. Do not approve solely because validator exited zero.
 
 Respond in this exact format:
@@ -60,7 +95,10 @@ or
 VERDICT: reject
 
 REASONS:
-- <one bullet per DoD item; for each, "MET" or "NOT MET" with a one-sentence justification>
+- <one bullet per DoD item; for each, "MET" or "NOT MET" with a one-sentence justification grounded in a specific file/line>
+- Non-goal violations: NONE / <list>
+- Anti-placeholder check: CLEAN / <findings>
+- Pre-existing-dirt check: NONE / <list of suspicious paths>
 
 FIX_LIST: (only if reject)
 - <specific actionable item the executing agent should do next>
