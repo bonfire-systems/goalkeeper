@@ -8,7 +8,7 @@ non_goals:
 definition_of_done:
   - All test files import from "vitest" instead of "@jest/globals" or rely on Jest globals
   - jest.config.* is removed; vitest.config.ts exists with equivalent coverage thresholds
-  - "pnpm test" runs the full suite under Vitest with 100% of previously-passing tests still passing
+  - The "pnpm test" command runs the full suite under Vitest with 100% of previously-passing tests still passing
   - Wall-clock test runtime improves by at least 20% vs the Jest baseline captured in scripts/baseline-test-time.txt
   - No file under tests/ contains the substring "jest." (except in archived/ subfolders)
 validator:

@@ -42,6 +42,13 @@ definition_of_done:
 
 The validator is necessary but not sufficient — the judge gates on the full DoD. Validators should be cheap structural checks; the judge handles the strict review. See [`examples/`](./examples/) for full contracts.
 
+Run `python3 scripts/validate-contracts.py` to check every contract in the repo against the JSON Schema. Two YAML pitfalls to avoid in DoD bullets:
+
+- **Don't start a bullet with a quoted phrase.** YAML treats `- "command" runs ...` as a quoted scalar followed by garbage. Rewrite to put a word first: `- The "command" runs ...`.
+- **Don't put unescaped colons inside unquoted strings.** YAML interprets `mocks, "TODO: real implementation"` as a key/value mapping. Wrap the whole bullet in single quotes: `- 'mocks, "TODO: real implementation"'`.
+
+Both pitfalls are caught by `validate-contracts.py`, which is fast enough to run pre-commit.
+
 ## Running a dogfood loop
 
 The fastest way to verify a change is real is to run goalkeeper against itself or a small repo where you can craft a tight contract. A typical loop:

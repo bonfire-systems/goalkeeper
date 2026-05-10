@@ -7,7 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.3] - 2026-05-10
+## [0.1.4] - 2026-05-10
+
+Driven by a schema-validity audit run during the rejection-cycle dogfood.
+Every contract in the repo now validates against `contract.schema.json`,
+and there's a script for users to run the same check locally.
+
+### Added
+
+- `scripts/validate-contracts.py` — walks the repo, finds every
+  `*.md` with frontmatter declaring a `slug`, and validates it against
+  `schemas/contract.schema.json` (using `pyyaml` and `jsonschema`).
+  Skips files without a `slug` field (chain files, skill files,
+  README, etc.) unless `--strict` is passed. Exits non-zero on any
+  validation failure, suitable for CI / pre-commit.
+- `CONTRIBUTING.md` — new "YAML pitfalls" subsection in "Writing a
+  contract" calling out the two patterns that broke contracts in the
+  audit: bullets starting with a quoted phrase, and unquoted strings
+  containing colons inside quoted phrases. Both are caught by
+  `validate-contracts.py`.
+
+### Fixed
+
+- `examples/migration.md` — DoD bullet that started with `"pnpm
+  test"` (broke YAML parsing because the bullet's value was a
+  quoted scalar followed by unparseable trailing text). Rewritten as
+  `The "pnpm test" command runs ...`. Discovered when running the
+  new `validate-contracts.py` against the repo.
+
+
 
 Spec-tightening release driven by findings from the rejection-cycle
 dogfood (one natural reject-then-fix-then-approve cycle on a
