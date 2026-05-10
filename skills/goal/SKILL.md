@@ -51,10 +51,14 @@ The `chain` field is OPTIONAL — present only when activation was driven by `/g
   "approved_at": "<ISO8601>",
   "paused_at": "<ISO8601>",
   "resumed_at": "<ISO8601>",
-  "needs_human_at": "<ISO8601>"
+  "needs_human_at": "<ISO8601>",
+  "validator_baseline_result": "pass" | "fail" | "not_runnable" | null,
+  "validator_baseline_failing_paths": ["<path>"]
 }
 ```
 `status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths` are REQUIRED on activation. `chain_step` SHOULD be present when the goal is part of a chain (denormalized for log clarity; chain.json is the source of truth for cursor). Timestamp fields populate as the goal transitions: `approved_at` on judge approve, `paused_at`/`resumed_at` on `/goal-pause`/`/goal-resume`, and `needs_human_at` when `rejection_count` reaches `max_rejections` and status flips to `needs_human`.
+
+`validator_baseline_result` and `validator_baseline_failing_paths` are populated by `/goal-prep` if it ran the validator once at activation baseline (which prep already does to confirm the command is runnable). When set, the judge treats `failing_paths` as pre-existing — a goal-end validator failure on those same paths is not the goal's fault. When null (validator was not run at prep, or prep is skipped), the judge has no pre-existing baseline to subtract from and treats validator failures as goal-caused.
 
 ### `.claude/goals/chain.json`
 

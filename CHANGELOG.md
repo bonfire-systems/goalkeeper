@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-05-10
+
+Spec extension driven by the v2-shadow-pipeline dogfood on the
+agently-ai codebase: the contract's validator was `npm run test &&
+npm run test:e2e && npm run lint`, and lint was already failing at
+the baseline commit on two files the goal never touched. Every
+checkpoint's validator run would have failed for reasons unrelated
+to the goal's work, polluting the judge's verdict. v0.1.9 adds the
+mechanism to detect and subtract this pre-existing debt.
+
+### Added
+
+- `state.json` schema (canonical, in `skills/goal/SKILL.md`) gained two
+  optional fields:
+  - `validator_baseline_result`: `"pass" | "fail" | "not_runnable" | null`
+  - `validator_baseline_failing_paths`: array of paths the validator
+    was already failing on at activation
+
+### Changed
+
+- `skills/goal-prep/SKILL.md` — when prep runs the validator once to
+  confirm it executes, it now also captures the exit code AND the list
+  of failing file paths from the output. Both flow into the activation
+  state.json so the judge can subtract pre-existing failures.
+- `skills/goal/SKILL.md` — activation step 3 picks up the
+  validator baseline from prep (when present) and writes it into
+  state.json alongside the existing `started_at_commit` /
+  `started_at_dirty_paths`.
+- `skills/goal-judge/SKILL.md` — Inputs section names the two new
+  state fields. "Pre-existing-dirt subtraction" gained a sibling
+  section ("Pre-existing validator-failure subtraction") spelling out:
+  - Goal-caused failure: validator passed at baseline but fails now,
+    OR fails on a path the goal modified that wasn't in
+    `validator_baseline_failing_paths`. Blocks approval.
+  - Pre-existing failure: validator was already failing on a path the
+    goal didn't modify. Does NOT block approval; surface in NOTES.
+- `skills/goal-judge/SKILL.md` — subagent prompt template now
+  includes the validator baseline + pre-existing-failing-paths in the
+  "Diff scope" header, plus a new "Pre-existing validator-failure
+  check" line in the structured-response format.
+- `README.md` — "State and storage" section documents the two new
+  optional state fields.
+
+### Why this matters
+
+Without this mechanism: any contract whose validator chains multiple
+commands (`test && lint && typecheck && ...`) is at the mercy of every
+unrelated failure in the codebase. The judge would reject every
+checkpoint until the entire repo is clean, which makes goalkeeper
+unusable on real codebases with pre-existing debt.
+
+With this mechanism: the goal proceeds. The judge correctly
+distinguishes "this goal broke X" from "X was already broken." The
+user can opportunistically fix the pre-existing debt or amend the
+contract to scope the validator to changed files — informed by the
+judge's NOTES section.
+
 ### Verified
 
 - **Local install end-to-end on developer machine 2026-05-10:**

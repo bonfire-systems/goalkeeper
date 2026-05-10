@@ -348,6 +348,76 @@ def test_judge_reject_below_threshold(goals: Path, v: bool) -> Test:
     return t
 
 
+def test_validator_baseline_capture(goals: Path, v: bool) -> Test:
+    """v0.1.9: state.json carries validator_baseline_result + failing_paths
+    so the judge can distinguish goal-caused vs pre-existing validator failures."""
+    t = Test("validator baseline capture (v0.1.9)", v)
+    # Goal activated with prep having found 2 pre-existing failing files
+    write_state(
+        goals, "vb1",
+        status="active",
+        validator_baseline_result="fail",
+        validator_baseline_failing_paths=[
+            "src/legacy/authenticity.ts",
+            "src/legacy/prompts.test.ts",
+        ],
+    )
+    state = read_json(goals / "vb1" / "state.json")
+    t.check('state.validator_baseline_result == "fail"',
+            state["validator_baseline_result"] == "fail")
+    t.check("state.validator_baseline_failing_paths has 2 paths",
+            len(state["validator_baseline_failing_paths"]) == 2)
+    t.check("baseline paths preserved verbatim",
+            state["validator_baseline_failing_paths"][0] == "src/legacy/authenticity.ts")
+
+    # Apply a transition (judge reject below threshold) — baseline must be
+    # carried through, NOT reset.
+    write_state(
+        goals, "vb1",
+        status="active",
+        rejection_count=1,
+        last_judge_verdict="reject",
+        last_validator_result="fail",
+        validator_baseline_result="fail",
+        validator_baseline_failing_paths=[
+            "src/legacy/authenticity.ts",
+            "src/legacy/prompts.test.ts",
+        ],
+    )
+    state_after = read_json(goals / "vb1" / "state.json")
+    t.check("baseline preserved across reject transition",
+            state_after["validator_baseline_result"] == "fail")
+    t.check("baseline paths preserved across reject transition",
+            len(state_after["validator_baseline_failing_paths"]) == 2)
+
+    # null baseline case (prep was skipped) — both fields are null, judge
+    # treats all validator failures as goal-caused.
+    write_state(
+        goals, "vb2",
+        status="active",
+        validator_baseline_result=None,
+        validator_baseline_failing_paths=[],
+    )
+    state_null = read_json(goals / "vb2" / "state.json")
+    t.check("null baseline → judge has no subtraction context",
+            state_null["validator_baseline_result"] is None)
+    t.check("null baseline empty paths list",
+            state_null["validator_baseline_failing_paths"] == [])
+
+    # "pass" baseline case — validator was clean at activation.
+    write_state(
+        goals, "vb3",
+        status="active",
+        validator_baseline_result="pass",
+        validator_baseline_failing_paths=[],
+    )
+    state_pass = read_json(goals / "vb3" / "state.json")
+    t.check('"pass" baseline preserves empty failing_paths',
+            state_pass["validator_baseline_result"] == "pass"
+            and state_pass["validator_baseline_failing_paths"] == [])
+    return t
+
+
 def test_judge_advisory_no_state_change(goals: Path, v: bool) -> Test:
     """Per goal-judge.md "When invoked on demand (advisory)": advisory runs do
     NOT modify state.json, rejection_count, or active.json. The verdict is
@@ -388,6 +458,7 @@ ALL_TESTS = [
     test_judge_approve_standalone,
     test_judge_reject_below_threshold,
     test_judge_advisory_no_state_change,
+    test_validator_baseline_capture,
 ]
 
 

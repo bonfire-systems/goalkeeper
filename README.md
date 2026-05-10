@@ -231,7 +231,7 @@ The skills (`goal`, `goal-clear`, `goal-judge`, `goal-chain`) all read and write
 }
 ```
 
-**`<slug>/state.json`** — required fields on activation: `status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths`. Populated as the goal runs: `chain_step`, `last_checkpoint_at`, `last_validator_result`, `last_judge_verdict`, `approved_at`, `paused_at`, `resumed_at`.
+**`<slug>/state.json`** — required fields on activation: `status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths`. Optional baseline-capture fields: `validator_baseline_result` (pass/fail/not_runnable/null) and `validator_baseline_failing_paths` (paths the validator was already failing on at activation — the judge subtracts these so pre-existing debt doesn't block goal approval). Populated as the goal runs: `chain_step`, `last_checkpoint_at`, `last_validator_result`, `last_judge_verdict`, `approved_at`, `paused_at`, `resumed_at`, `needs_human_at`.
 
 **`chain.json`** — `name`, `slugs[]`, `cursor`, `status`, `started_at`, `completed_at`, `source_file`, `link_approvals[]`. The `link_approvals` array accumulates `{slug, approved_at}` entries as each link is judge-approved, providing chain-level visibility independent of per-link state files.
 

@@ -12,6 +12,8 @@ You are operating the **goal-judge** skill — the gate that decides whether a g
 - `.claude/goals/<slug>/log.md` (the full progress log)
 - `state.started_at_commit` — git baseline captured at activation; use as the diff origin
 - `state.started_at_dirty_paths` — paths that were already dirty at activation; the judge should NOT credit/blame those
+- `state.validator_baseline_result` — `"pass" | "fail" | "not_runnable" | null` — was the validator passing at activation? Captured by `/goal-prep`.
+- `state.validator_baseline_failing_paths` — paths the validator flagged at baseline; if the final validator failure is on these same paths, it's pre-existing dirt, not goal-caused
 - `args` — optional: `--mode=inline|subagent` to override `judge_mode` from contract
 
 ## Build the judge prompt — mechanical assembly
@@ -83,6 +85,15 @@ Dedupe and absolutize (prefix with the repo root). This is the file list the jud
 
 For each path in `state.started_at_dirty_paths`: if the path also appears in step 4's file list, mark it for the judge as "pre-existing — verify these changes belong to the goal." Do NOT remove it from the file list (the judge still inspects it), just flag it. The judge's `Pre-existing-dirt check` verdict line addresses this set explicitly.
 
+### Step 6 — pre-existing validator-failure subtraction
+
+If `state.validator_baseline_result == "fail"`, the validator was ALREADY failing at activation. Capture the current validator failure paths and compare:
+
+- **Goal-caused failure:** current failing path is NOT in `state.validator_baseline_failing_paths`, OR `state.validator_baseline_result` was `"pass"`. → blocks approval.
+- **Pre-existing failure:** current failing path IS in `state.validator_baseline_failing_paths` AND the goal did not modify it (not in step 4 file list). → does NOT block approval if all DoD items are otherwise met. Surface in NOTES so the user can decide whether to fix opportunistically.
+
+When `validator_baseline_result == null` (prep didn't run the validator, or the goal was activated without prep), the judge has no baseline to subtract from — treat all validator failures as goal-caused. The user can manually amend state.json if they know better.
+
 ## Decide execution mode
 
 1. Read contract `judge_mode`, default `subagent`. Override with `--mode=` arg if present.
@@ -113,6 +124,9 @@ You are an independent judge reviewing a goalkeeper goal. You have not seen the 
 # Diff scope
 
 Baseline: [started_at_commit short SHA or "no-git"]
+Validator baseline: [state.validator_baseline_result or "unknown"]
+Pre-existing validator-failing paths (failures on these are NOT goal-caused):
+  [list from state.validator_baseline_failing_paths, or "none/unknown"]
 Default + contract exclusions applied (lockfiles, build outputs, coverage, IDE files).
 Pre-existing dirty paths at activation (do NOT credit as goal work, but flag if any goal work touched them):
   [list from state.started_at_dirty_paths, or "none"]
@@ -149,6 +163,7 @@ REASONS:
 - Non-goal violations: NONE / <list>
 - Anti-placeholder check: CLEAN / <findings>
 - Pre-existing-dirt check: NONE / <list of suspicious paths>
+- Pre-existing validator-failure check: NONE / <list of paths failing at baseline that still fail; mark "not goal-caused">
 
 FIX_LIST: (only if reject)
 - <specific actionable item the executing agent should do next>

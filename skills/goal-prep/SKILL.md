@@ -61,5 +61,10 @@ If the user chose to start, immediately re-enter the **goal** skill set-mode flo
 
 - **No silent defaults on DoD.** Every DoD criterion must be confirmed by the user. The DoD is the judge's grading rubric — sloppiness here breaks everything downstream.
 - **Validator must be a real command** that can be run in this repo right now. Don't propose `make test` if there's no Makefile. Run it once during prep to confirm it executes (not necessarily that it passes — just that it runs).
+- **Capture the baseline result.** When you run the validator during prep, record:
+  - exit code (0 → `pass`; non-zero → `fail`; command not found / crashed → `not_runnable`)
+  - the list of file paths the validator reports as failing (parse from output; e.g. for ESLint, the paths that have errors; for vitest, the test files with failed assertions). Empty array on pass or when paths aren't extractable.
+
+  Pass these to the goal skill's activation step so it can populate `state.validator_baseline_result` and `state.validator_baseline_failing_paths`. The judge uses these to distinguish goal-caused validator failures from pre-existing failures on files the goal never touched. **This is the mechanism that lets a goal proceed when the validator is partly polluted by pre-existing debt** — without it, every checkpoint fails for reasons unrelated to the work.
 - **Slug uniqueness:** if `.claude/goals/<slug>/` already exists, ask the user whether to overwrite or pick a new slug. Never silently overwrite.
 - **Don't write the contract until all questions are answered.** Partial contracts are worse than no contract.
