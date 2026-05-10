@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.6] - 2026-05-10
+## [0.1.7] - 2026-05-10
+
+### Added
+
+- `scripts/test-lifecycle.py` — re-runnable spec-conformance suite
+  encoding 54 assertions across 9 state transitions. Closes the v0.1.5
+  "deferred to v0.2" gap. Stdlib-only (no extra deps), runs in seconds,
+  exits non-zero on any failure. Suitable for CI / pre-commit. Tests:
+  - `/goal-pause`: active → paused
+  - `/goal-resume`: paused → active
+  - `/goal-clear`: active → cleared + archived
+  - `/goal-resume` from needs_human with rejection counter reset
+  - max_rejections threshold (4 → 5 → needs_human)
+  - chain completion (cursor reaches end → chain done)
+  - `/goal-clear` during active chain (chain.status flips to aborted,
+    unreached link contracts preserved)
+  - judge approve on standalone goal (terminal active.json)
+  - judge reject below threshold (rejection_count++, stays active)
+- `CONTRIBUTING.md` — added "Running the lifecycle suite" pointer.
+
+### Notes
+
+This is a *spec consistency* test, not a Claude Code skill integration
+test — it codifies the canonical state shapes from
+`skills/goal/SKILL.md` and verifies that constructing them per spec
+produces the expected results. If a SKILL.md ever drifts from the
+canonical shapes documented in `goal`, this test catches the
+divergence on the next run.
+
+
 
 **Plumbing release — required for `/plugin install` to work.** Verified
 against installed plugins on disk (caveman, ralph-loop) before
