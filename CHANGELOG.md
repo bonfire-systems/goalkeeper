@@ -7,7 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.4] - 2026-05-10
+## [0.1.5] - 2026-05-10
+
+Verification release: comprehensive lifecycle dogfood (pause / resume /
+resume-from-needs_human / clear / chain-abort) revealed one small spec
+gap, fixed here. No skill behavior changes from a user perspective.
+
+### Changed
+
+- `skills/goal-clear.md` — clarified the chain-handling step:
+  - The chain-level log entry on abort goes to the cleared slug's
+    own `log.md` (chain-level events are reconstructible from
+    per-link logs + chain.json; no separate chain-log file).
+  - Explicitly addressed the `chain.json.status` already-`done`/-`aborted`
+    case: leave chain.json untouched (you're archiving a goal whose
+    chain finished earlier, not aborting in-flight).
+  - Reaffirmed: unreached chain-link contracts stay in place for
+    re-use.
+  - Spelled out the `cleared` (per-goal) vs `aborted` (chain-level)
+    distinction so the two terminal flags don't get conflated.
+
+### Verified by dogfood
+
+Lifecycle dogfood ran every state transition with synthetic fixtures
+and hand-authored Python assertions:
+
+- **/goal-pause**: active → paused (7 assertions PASS).
+- **/goal-resume from paused**: paused → active (5 assertions PASS).
+- **/goal-clear**: active → cleared with archive flow (10 assertions
+  PASS — directory moved not deleted, all state files preserved,
+  active.json terminal shape correct).
+- **/goal-resume from needs_human with counter reset**: needs_human →
+  active, rejection_count 5 → 0, audit-trail timestamps preserved (7
+  assertions PASS).
+- **/goal-clear during active chain**: active → cleared, chain.status
+  flipped to aborted, link 1 archived, unreached link 2 contract
+  preserved (11 assertions PASS — including the critical distinction
+  that active.json `ended_reason="cleared"` while chain.json
+  `status="aborted"`).
+- **max_rejections threshold**: synthetic test with rejection_count=4
+  → simulated 5th reject → status flipped to needs_human, log
+  captured paused entry, active.json correctly stayed in active
+  shape (7 assertions PASS).
+
+Total: 47 lifecycle assertions across 6 transition paths, all PASS.
+
+### Known coverage gaps (deferred)
+
+- 3 alternate user-choice paths in `/goal-resume` from needs_human:
+  Continue without reset, Abandon-via-resume.
+- `/goal-pause` when already paused (should no-op per spec).
+- `/goal-clear` when no active goal (should tell user and stop).
+- `/goal-resume` from `done` state (should refuse per spec).
+
+Each is a mechanical no-op or refusal path. v0.2 may add a
+`scripts/test-lifecycle.py` covering all transitions automatically.
+
+
 
 Driven by a schema-validity audit run during the rejection-cycle dogfood.
 Every contract in the repo now validates against `contract.schema.json`,

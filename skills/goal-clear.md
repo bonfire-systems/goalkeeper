@@ -28,7 +28,11 @@ You are operating the **goal-clear** skill.
    }
    ```
    If a chain was active, also include `"previous_chain": "<chain-name>"`.
-7. **If a chain is active** (`.claude/goals/chain.json` exists and contains the cleared slug), set `chain.json.status = "aborted"` (and `completed_at = <ISO8601 now>`) and append a chain-level log entry. Do NOT advance to the next goal — clearing kills the chain. The active.json `ended_reason` stays `"cleared"` (not `"aborted"`); chain.json carries the chain-level abort signal.
+7. **If a chain is active** (`.claude/goals/chain.json` exists with `status == "active"` and contains the cleared slug), set `chain.json.status = "aborted"` and `chain.json.completed_at = <ISO8601 now>`. Append a `## <ISO8601> — chain aborted` entry to the cleared slug's `log.md` (chain-level events are reconstructible from per-link logs + chain.json — there is no separate chain-log file). Do NOT advance to the next goal — clearing kills the chain. Do NOT modify the contracts or state of unreached chain links — their `contract.md` files stay in place for re-use.
+
+   If `chain.json.status` is already `done` or `aborted` (chain not currently active), leave `chain.json` untouched — the cleared goal is being archived after the chain finished, not aborting an in-flight chain.
+
+   The active.json `ended_reason` stays `"cleared"` (not `"aborted"`) — `aborted` is a chain-level signal carried in chain.json, while the user's clear action on the goal is per-goal terminal context.
 8. Tell the user: "Cleared goal `<slug>`. Archived to `.claude/goals/_archive/<dir>/`. Run /goal or /goal-prep to start a new one."
 
 ## Hard rules
