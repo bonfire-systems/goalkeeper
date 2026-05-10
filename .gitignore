@@ -3,3 +3,7 @@
 node_modules/
 .idea/
 .vscode/
+
+# Goalkeeper dogfood state — this repo IS goalkeeper, so the goals
+# directory is for self-testing only, not for users of the plugin.
+.claude/goals/

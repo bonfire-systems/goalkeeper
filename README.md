@@ -128,6 +128,55 @@ Run with:
 
 Each slug must already have a contract at `.claude/goals/<slug>/contract.md`. Run `/goal-prep` for each before starting the chain.
 
+## Multi-role goals
+
+Most non-trivial goals span multiple roles — backend changes, UI wiring, migrations, tests, docs. Goalkeeper deliberately keeps just two agent slots (executor + judge) and stays framework-agnostic about how you spawn specialists. There are two patterns for getting role-shaped work through goalkeeper, and the right choice depends on how decoupled the roles are.
+
+### Pattern A — chain of role-specific contracts (default)
+
+Frame each role as its own contract with its own Definition of Done, validator, and judge. Compose them with `/goal-chain`. The judge gates progression: backend's judge has to approve before UI starts; UI's judge has to approve before migrations.
+
+```markdown
+---
+name: stripe-integration
+---
+
+1. stripe-api-routes
+2. stripe-db-migration
+3. stripe-checkout-ui
+4. stripe-e2e-tests
+```
+
+Each slug has its own `.claude/goals/<slug>/contract.md` with a focused DoD ("Stripe webhook signature verification works", "checkout component handles 3DS challenge", etc.) and a focused validator (`pnpm test packages/api`, `pnpm test packages/web`, etc.). See [`examples/chain.md`](./examples/chain.md) for a worked example.
+
+**Choose Pattern A when:** roles are sequenceable. One role's work produces the artifacts the next role consumes. The dependency graph is linear or close to it. You want the judge to gate-keep at each role boundary so a sloppy backend can't silently corrupt the UI step.
+
+**Tradeoff:** chains force upfront decomposition. You have to know the boundaries before you start. If the boundaries shift mid-flight, you have to clear the chain and re-plan.
+
+### Pattern B — in-goal `specialists:` orchestration (proposed for v0.2)
+
+For tightly-coupled cross-role work — same files, can't be sequenced — Pattern A creates artificial mid-flight pauses. Pattern B is the escape hatch: a single contract with a `specialists:` field that lists the roles available, plus role-specific system prompts. The executing agent is the orchestrator and dispatches subtasks to specialist subagents (Claude Code general-purpose agents with custom system prompts, your own `subagent_type` definitions, or MCP-based agents — goalkeeper doesn't ship specialist definitions).
+
+```yaml
+specialists:
+  - role: backend
+    system_prompt: "You are a senior Node.js engineer. ..."
+  - role: ui
+    system_prompt: "You are a senior React engineer. ..."
+```
+
+The judge still gates final approval against the unified DoD; the executing agent's log records which specialist did what.
+
+**Status: proposed for v0.2 — not yet implemented.** The `specialists:` field is not in `schemas/contract.schema.json` yet. If you need this today, write your own orchestration in the body of the contract and have the executing agent spawn subagents using whatever Claude Code mechanism you prefer; goalkeeper observes via the log and the judge gates the result against the unified DoD.
+
+**Choose Pattern B when:** specialists genuinely have to interleave on the same files. A frontend change requires a simultaneous backend change, both committed together, both tested together. Pattern A would create a contract that artificially pauses the work mid-flight.
+
+**Tradeoff:** the executing agent owns coordination state, and the judge has to reason about multiple specialists' contributions in a single DoD pass. Easier bugs to hide than in chains.
+
+### Default: prefer A unless you can articulate why A doesn't fit
+
+If you can list the roles in dependency order and each role can complete independently before the next starts, use Pattern A. Reach for Pattern B only when the roles must touch the same code in the same edit.
+
 ## State and storage
 
 ```
