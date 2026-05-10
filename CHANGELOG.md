@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Verified
+
+- **Local install end-to-end on developer machine 2026-05-10:**
+  `claude plugin validate .` passes; `claude plugin marketplace add
+  ~/Documents/goalkeeper` succeeds; `claude plugin install
+  goalkeeper@goalkeeper` produces v0.1.8 install at
+  `~/.claude/plugins/cache/goalkeeper/goalkeeper/0.1.8/` with all 7
+  SKILL.md files discovered and the plugin shown as `✔ enabled` in
+  `claude plugin list`. Strongest possible release-readiness signal
+  short of in-session skill invocation (which requires a Claude Code
+  session restart).
+
+### Added
+
+- `scripts/test-lifecycle.py` — 10th test (`test_judge_advisory_no_state_change`)
+  covering the goal-judge.md "advisory mode" invariant: when invoked
+  on-demand outside the auto-gate flow, the judge does NOT modify
+  state.json, rejection_count, or active.json. Closes the previously-
+  noted "inline judge mode never tested" gap. Total now 59 assertions
+  across 10 tests.
+
 ## [0.1.8] - 2026-05-10
 
 ### Added

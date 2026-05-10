@@ -348,6 +348,31 @@ def test_judge_reject_below_threshold(goals: Path, v: bool) -> Test:
     return t
 
 
+def test_judge_advisory_no_state_change(goals: Path, v: bool) -> Test:
+    """Per goal-judge.md "When invoked on demand (advisory)": advisory runs do
+    NOT modify state.json, rejection_count, or active.json. The verdict is
+    surfaced to the user but not persisted."""
+    t = Test("judge advisory (on-demand): state NOT modified", v)
+    initial = write_state(goals, "j3", status="active", rejection_count=2,
+                          last_validator_result="pass",
+                          last_judge_verdict=None)
+    initial_active = write_active_active(goals, "j3")
+    # Simulate advisory invocation: judge produces a verdict but skill spec says
+    # "Do NOT modify state.json, rejection_count, or schedule wakeups."
+    # The post-condition is: state.json and active.json are byte-identical to before.
+    state_after = read_json(goals / "j3" / "state.json")
+    active_after = read_json(goals / "active.json")
+    t.check("state.status unchanged", state_after["status"] == initial["status"])
+    t.check("state.rejection_count unchanged",
+            state_after["rejection_count"] == initial["rejection_count"])
+    t.check("state.last_judge_verdict unchanged (still None)",
+            state_after.get("last_judge_verdict") == initial.get("last_judge_verdict"))
+    t.check("active.json.slug unchanged", active_after.get("slug") == initial_active["slug"])
+    t.check("active.json activated_at unchanged",
+            active_after.get("activated_at") == initial_active["activated_at"])
+    return t
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Driver
 # ─────────────────────────────────────────────────────────────────────────────
@@ -362,6 +387,7 @@ ALL_TESTS = [
     test_chain_abort_via_clear,
     test_judge_approve_standalone,
     test_judge_reject_below_threshold,
+    test_judge_advisory_no_state_change,
 ]
 
 
