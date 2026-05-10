@@ -5,6 +5,74 @@ description: Set or check status of a durable goalkeeper goal. Use this skill wh
 
 You are operating the **goalkeeper** skill — durable, contract-driven goal execution with judge-gated completion. This skill is invoked when the user runs `/goal` or `/goal "<objective>"`.
 
+## Canonical state shapes
+
+Single source of truth for the JSON files goalkeeper reads and writes. Other skills (goal-clear, goal-judge, goal-chain) MUST conform to these shapes — drift here is the source of cross-skill bugs.
+
+### `.claude/goals/active.json`
+
+Two shapes only — active or terminal.
+
+**Active** (a goal is currently running):
+```json
+{
+  "slug": "<slug>",
+  "activated_at": "<ISO8601>",
+  "chain": "<chain-name>"
+}
+```
+The `chain` field is OPTIONAL — present only when activation was driven by `/goal-chain` (start mode or advance mode). Standalone goals omit it.
+
+**Terminal** (no active goal):
+```json
+{
+  "slug": null,
+  "ended_at": "<ISO8601>",
+  "ended_reason": "done" | "cleared" | "chain_completed" | "aborted",
+  "previous_slug": "<slug>",
+  "previous_chain": "<chain-name>"
+}
+```
+`slug`, `ended_at`, and `ended_reason` are REQUIRED on terminal. `previous_slug` SHOULD be set when the last activity was a single goal or chain link. `previous_chain` SHOULD be set when a chain just ended (`chain_completed` or `aborted`).
+
+### `.claude/goals/<slug>/state.json`
+
+```json
+{
+  "status": "active" | "paused" | "done" | "needs_human",
+  "rejection_count": <int>,
+  "started_at": "<ISO8601>",
+  "started_at_commit": "<git rev-parse HEAD or null>",
+  "started_at_dirty_paths": ["<paths from git status --porcelain at activation>"],
+  "chain_step": <int>,
+  "last_checkpoint_at": "<ISO8601 or null>",
+  "last_validator_result": "pass" | "fail: <reason>" | null,
+  "last_judge_verdict": "approve" | "reject" | null,
+  "approved_at": "<ISO8601>",
+  "paused_at": "<ISO8601>",
+  "resumed_at": "<ISO8601>"
+}
+```
+`status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths` are REQUIRED on activation. `chain_step` SHOULD be present when the goal is part of a chain (denormalized for log clarity; chain.json is the source of truth for cursor). Other fields are populated as the goal progresses.
+
+### `.claude/goals/chain.json`
+
+```json
+{
+  "name": "<chain name>",
+  "slugs": ["<slug>", "..."],
+  "cursor": <int>,
+  "status": "active" | "done" | "aborted",
+  "started_at": "<ISO8601>",
+  "completed_at": "<ISO8601 or null>",
+  "source_file": "<absolute path>",
+  "link_approvals": [
+    {"slug": "<slug>", "approved_at": "<ISO8601>"}
+  ]
+}
+```
+`link_approvals` accumulates one entry per judge-approved link. Provides chain-level visibility independent of per-link state.json files.
+
 ## Decide mode from args
 
 - `args` non-empty → **set mode** (start or resume a goal)
@@ -52,7 +120,7 @@ You are operating the **goalkeeper** skill — durable, contract-driven goal exe
        "last_judge_verdict": null
      }
      ```
-   - Write `.claude/goals/active.json`: `{"slug": "<slug>", "activated_at": "<ISO8601 now>"}`.
+   - Write `.claude/goals/active.json` per the canonical active shape. If the activation is driven by `/goal-chain`, include `"chain": "<chain-name>"`; otherwise omit the field.
    - Append to `log.md`:
      ```
      ## <ISO8601> — activated

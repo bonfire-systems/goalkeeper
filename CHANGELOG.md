@@ -7,7 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-05-10
+## [0.1.2] - 2026-05-10
+
+Spec-tightening release driven by findings from the second dogfood run
+(`/goal-chain` end-to-end on the goalkeeper repo itself, 2 links, both
+judge-approved).
+
+### Changed
+
+- `skills/goal.md` — added a "Canonical state shapes" section as the
+  single source of truth for `active.json`, `<slug>/state.json`, and
+  `chain.json` schemas. Other skills now reference this section instead
+  of inlining their own divergent shapes.
+- `active.json` schema converged on two shapes only: **active**
+  (`{slug, activated_at, chain?}`) or **terminal**
+  (`{slug: null, ended_at, ended_reason, previous_slug?, previous_chain?}`).
+  Previously each terminal flow (done, cleared, chain_completed) wrote
+  a different ad-hoc shape.
+- `skills/goal-clear.md` — clear flow writes the canonical terminal
+  shape with `ended_reason: "cleared"`. When clearing during a chain,
+  also includes `previous_chain`; the chain.json carries the abort
+  signal separately.
+- `skills/goal-judge.md` — on-approve standalone path writes the
+  canonical terminal shape with `ended_reason: "done"`.
+- `skills/goal-judge.md` — replaced the prose "Compute the diff
+  scope" section with a 5-step mechanical assembly procedure
+  containing exact shell command templates (`git diff
+  <baseline>..HEAD`, `git ls-files --others --exclude-standard`, etc.)
+  and a copy-pasteable `DEFAULT_EXCLUDES` array. Removes inconsistency
+  risk between judge invocations.
+- `skills/goal-chain.md` — chain-completion path writes the canonical
+  terminal shape with `ended_reason: "chain_completed"` plus
+  `previous_chain` and `previous_slug`.
+- `skills/goal-chain.md` — chain advance now documents an atomic write
+  order (mark previous done → record link approval → increment cursor
+  → initialize next state.json + log.md → update active.json LAST) so
+  interruptions leave a recoverable state.
+- `skills/goal-chain.md` — status-mode print format now includes
+  per-link approval timestamps from `chain.json.link_approvals[]`,
+  plus chain-level started_at / completed_at lines.
+
+### Added
+
+- `chain.json` schema gained `link_approvals: [{slug, approved_at}]`.
+  Initialized empty by `/goal-chain` start; the goal-judge skill
+  appends one entry per approved chain link before handing off to
+  goal-chain advance. Provides chain-level visibility without having
+  to walk per-link `state.json` files.
+- `skills/goal-chain.md` — new "Recovery from interrupted advance"
+  section documenting four symptoms of a half-failed advance (cursor
+  advanced but active.json stale; cursor advanced but next state.json
+  missing; previous done but cursor not advanced; missing
+  link_approvals entry) and the corresponding manual recovery for
+  each.
+- `README.md` — "State and storage" section now documents the
+  canonical shapes for `active.json`, `state.json`, and `chain.json`
+  with cross-reference to `skills/goal.md` as the source of truth.
+
+### Fixed
+
+- The three previously-divergent terminal `active.json` shapes
+  (`{slug: null, completed_at}`, `{slug: null, cleared_at}`,
+  `{slug: null, chain_completed_at}`) are now unified, eliminating a
+  class of cross-skill bugs where one skill wrote a shape another
+  skill couldn't read.
+
+
 
 ### Changed
 

@@ -18,8 +18,17 @@ You are operating the **goal-clear** skill.
    Final status before clear: <status>. Rejection count: <n>. Archived.
    ```
 5. **Move** (not copy) `.claude/goals/<slug>/` to `.claude/goals/_archive/<slug>-<YYYYMMDD-HHMMSS>/`. Use `mv` via Bash to preserve files atomically.
-6. Set `.claude/goals/active.json` to `{"slug": null, "cleared_at": "<ISO8601>"}`.
-7. **If a chain is active** (`.claude/goals/chain.json` exists and contains the cleared slug), set the chain status to `aborted` and append a chain-level log entry. Do NOT advance to the next goal — clearing kills the chain.
+6. Set `.claude/goals/active.json` to the canonical terminal shape (see goal.md "Canonical state shapes"):
+   ```json
+   {
+     "slug": null,
+     "ended_at": "<ISO8601 now>",
+     "ended_reason": "cleared",
+     "previous_slug": "<the slug just cleared>"
+   }
+   ```
+   If a chain was active, also include `"previous_chain": "<chain-name>"`.
+7. **If a chain is active** (`.claude/goals/chain.json` exists and contains the cleared slug), set `chain.json.status = "aborted"` (and `completed_at = <ISO8601 now>`) and append a chain-level log entry. Do NOT advance to the next goal — clearing kills the chain. The active.json `ended_reason` stays `"cleared"` (not `"aborted"`); chain.json carries the chain-level abort signal.
 8. Tell the user: "Cleared goal `<slug>`. Archived to `.claude/goals/_archive/<dir>/`. Run /goal or /goal-prep to start a new one."
 
 ## Hard rules

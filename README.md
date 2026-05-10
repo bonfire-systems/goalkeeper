@@ -181,18 +181,42 @@ If you can list the roles in dependency order and each role can complete indepen
 
 ```
 .claude/goals/
-  active.json                    # pointer to current slug
+  active.json                    # pointer to current slug (or terminal record)
   chain.json                     # current chain, if any
   .gitignore                     # ignores all goal dirs except shared/ (opt-in)
   <slug>/
     contract.md                  # the spec
-    state.json                   # status, rejection_count, started_at_commit (git baseline), last validator/judge results
+    state.json                   # status, rejection_count, git baseline, validator/judge results
     log.md                       # append-only checkpoint + verdict log
   _archive/                      # cleared goals (moved, never deleted)
   shared/                        # opt-in committed contracts for team sharing
 ```
 
 By default everything under `.claude/goals/` is gitignored. To share a contract with your team, place it under `.claude/goals/shared/<slug>/contract.md`.
+
+### Canonical state shapes
+
+The skills (`goal`, `goal-clear`, `goal-judge`, `goal-chain`) all read and write the same shapes. Single source of truth lives in [`skills/goal.md`](./skills/goal.md) under "Canonical state shapes"; the reference here is for users.
+
+**`active.json`** — exactly two shapes, active or terminal:
+
+```json
+// Active
+{"slug": "<slug>", "activated_at": "<ISO>", "chain": "<chain>"}  // chain is optional
+
+// Terminal
+{
+  "slug": null,
+  "ended_at": "<ISO>",
+  "ended_reason": "done" | "cleared" | "chain_completed" | "aborted",
+  "previous_slug": "<slug>",
+  "previous_chain": "<chain>"
+}
+```
+
+**`<slug>/state.json`** — required fields on activation: `status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths`. Populated as the goal runs: `chain_step`, `last_checkpoint_at`, `last_validator_result`, `last_judge_verdict`, `approved_at`, `paused_at`, `resumed_at`.
+
+**`chain.json`** — `name`, `slugs[]`, `cursor`, `status`, `started_at`, `completed_at`, `source_file`, `link_approvals[]`. The `link_approvals` array accumulates `{slug, approved_at}` entries as each link is judge-approved, providing chain-level visibility independent of per-link state files.
 
 ## Design notes
 

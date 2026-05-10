@@ -14,22 +14,74 @@ You are operating the **goal-judge** skill — the gate that decides whether a g
 - `state.started_at_dirty_paths` — paths that were already dirty at activation; the judge should NOT credit/blame those
 - `args` — optional: `--mode=inline|subagent` to override `judge_mode` from contract
 
-## Compute the diff scope
+## Build the judge prompt — mechanical assembly
 
-Run `git diff <state.started_at_commit>..HEAD` AND `git diff` (working tree) to capture both committed and uncommitted goal work. If `started_at_commit` is null (not a git repo), fall back to `git status` if available, otherwise note "no-git".
+Don't improvise this. Each judge invocation must produce the same prompt-shape so verdicts are comparable across runs.
 
-**Default exclusion globs** — apply via `git diff -- ':!<glob>'` to keep noise out of the judge's context:
+### Step 1 — read state
 
-- Lockfiles: `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`, `go.sum`, `Gemfile.lock`, `composer.lock`
-- Build outputs: `dist/`, `build/`, `out/`, `target/`, `.next/`, `*.min.js`, `*.min.css`
-- Test/coverage: `coverage/`, `.nyc_output/`, `test-results/`
-- IDE/editor: `.vscode/`, `.idea/`, `.DS_Store`
+```
+slug         = <read .claude/goals/active.json>.slug
+state        = <read .claude/goals/<slug>/state.json>
+contract_md  = <read .claude/goals/<slug>/contract.md verbatim>
+log_md       = <read .claude/goals/<slug>/log.md verbatim>
+```
 
-If the contract has a `diff_excludes` field, append those globs as well.
+### Step 2 — assemble the exclusion pathspecs
 
-If the contract has a `diff_includes` field (rare — for narrowing), prefer that over the default-minus-excludes.
+Default exclusions (always apply):
 
-**Pre-existing-dirt subtraction:** any file in `state.started_at_dirty_paths` that the judge sees in the diff should be flagged as "pre-existing — verify these changes belong to the goal." Don't auto-credit them as goal work.
+```
+DEFAULT_EXCLUDES=(
+  ':!package-lock.json' ':!yarn.lock' ':!pnpm-lock.yaml'
+  ':!Cargo.lock' ':!poetry.lock' ':!go.sum'
+  ':!Gemfile.lock' ':!composer.lock'
+  ':!dist/**' ':!build/**' ':!out/**' ':!target/**' ':!.next/**'
+  ':!**/*.min.js' ':!**/*.min.css'
+  ':!coverage/**' ':!.nyc_output/**' ':!test-results/**'
+  ':!.vscode/**' ':!.idea/**' ':!.DS_Store'
+)
+```
+
+Append contract `diff_excludes` if present (each entry becomes `:!<glob>`).
+
+If contract has `diff_includes` (rare narrowing), use those positively instead of default-minus-excludes — e.g. `git diff <baseline>..HEAD -- packages/api/ packages/web/`.
+
+### Step 3 — compute the diff
+
+If `state.started_at_commit` is non-null (git repo):
+
+```bash
+# Committed work since baseline
+git diff <state.started_at_commit>..HEAD -- "${DEFAULT_EXCLUDES[@]}" <user_excludes...>
+
+# Uncommitted working-tree work (staged + unstaged)
+git diff -- "${DEFAULT_EXCLUDES[@]}" <user_excludes...>
+
+# Untracked new files (not shown by git diff)
+git ls-files --others --exclude-standard -- "${DEFAULT_EXCLUDES[@]}"
+```
+
+Concatenate the three outputs in that order. For untracked new files, also Read them so the judge sees their full content (not just the path list).
+
+If `state.started_at_commit` is null (not a git repo): use `git status` if available; otherwise note "no-git — review log + files only" in the prompt.
+
+### Step 4 — compute the file list
+
+```bash
+# Modified files (committed + uncommitted)
+git diff --name-only <state.started_at_commit>..HEAD -- "${DEFAULT_EXCLUDES[@]}" <user_excludes...>
+git diff --name-only -- "${DEFAULT_EXCLUDES[@]}" <user_excludes...>
+
+# Untracked
+git ls-files --others --exclude-standard -- "${DEFAULT_EXCLUDES[@]}"
+```
+
+Dedupe and absolutize (prefix with the repo root). This is the file list the judge subagent must Read end-to-end.
+
+### Step 5 — pre-existing-dirt subtraction
+
+For each path in `state.started_at_dirty_paths`: if the path also appears in step 4's file list, mark it for the judge as "pre-existing — verify these changes belong to the goal." Do NOT remove it from the file list (the judge still inspects it), just flag it. The judge's `Pre-existing-dirt check` verdict line addresses this set explicitly.
 
 ## Decide execution mode
 
@@ -39,17 +91,13 @@ If the contract has a `diff_includes` field (rare — for narrowing), prefer tha
 
 ## Subagent mode
 
-Spawn the agent with a self-contained prompt. The subagent has not seen this conversation — give it everything it needs.
-
-Before constructing the prompt, compute:
-- The diff (per "Compute the diff scope" above), with default + contract exclusions applied
-- The list of files modified or added by the goal, derived from `git diff --name-only` over the same scope
+Spawn the agent with a self-contained prompt assembled from steps 1-5 above. The subagent has not seen this conversation — give it everything it needs.
 
 The judge subagent must do BOTH of these — diffs lose context (renames, surrounding code, file-level structure):
 1. **Read the diff** for an overview of what changed
 2. **Read each modified/added file end-to-end** via the Read tool to verify behavior, not just surface
 
-Use this prompt template (fill in the bracketed sections):
+Use this prompt template (fill in the bracketed sections from steps 1-5):
 
 ```
 You are an independent judge reviewing a goalkeeper goal. You have not seen the executing agent's reasoning — review the artifacts only.
@@ -128,8 +176,21 @@ Parse the verdict (`approve` or `reject`).
    Reasons:
    <REASONS block from the judge>
    ```
-3. **Chain check:** if `.claude/goals/chain.json` exists and contains `<slug>` at the current cursor, hand off to the **goal-chain** skill to advance the cursor and activate the next goal.
-4. **Standalone goal:** set `state.status = done`. Null out `active.json`. Tell the user: "Goal `<slug>` approved and marked done."
+3. **Chain check:** if `.claude/goals/chain.json` exists and contains `<slug>` at the current cursor, **append** to `chain.json.link_approvals`:
+   ```json
+   {"slug": "<slug>", "approved_at": "<ISO8601 now>"}
+   ```
+   Then hand off to the **goal-chain** skill to advance the cursor and activate the next goal. (The goal-chain skill is responsible for setting `chain.json.status = done` and writing the terminal active.json when the cursor reaches the end.)
+4. **Standalone goal:** set `state.status = done`. Write `.claude/goals/active.json` to the canonical terminal shape (see goal.md "Canonical state shapes"):
+   ```json
+   {
+     "slug": null,
+     "ended_at": "<ISO8601 now>",
+     "ended_reason": "done",
+     "previous_slug": "<slug>"
+   }
+   ```
+   Tell the user: "Goal `<slug>` approved and marked done."
 
 ### On reject
 

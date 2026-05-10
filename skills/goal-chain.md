@@ -50,6 +50,8 @@ If `.claude/goals/active.json` shows an active goal, or `.claude/goals/chain.jso
 
 ### 4. Write chain.json
 
+Per the canonical chain.json shape (see goal.md "Canonical state shapes"):
+
 ```json
 {
   "name": "<from frontmatter or filename>",
@@ -58,13 +60,26 @@ If `.claude/goals/active.json` shows an active goal, or `.claude/goals/chain.jso
   "status": "active",
   "started_at": "<ISO8601>",
   "completed_at": null,
-  "source_file": "<absolute path to chain file>"
+  "source_file": "<absolute path to chain file>",
+  "link_approvals": []
 }
 ```
 
+`link_approvals` starts empty and accumulates one entry per judge-approved link as the chain advances.
+
 ### 5. Activate the first slug
 
-Set `.claude/goals/active.json` to point to `slugs[0]`. Initialize that goal's `state.json` (status=active, rejection_count=0, started_at=now). Append to its `log.md`:
+Write `.claude/goals/active.json` per the canonical active shape with `chain` populated:
+
+```json
+{
+  "slug": "<slugs[0]>",
+  "activated_at": "<ISO8601>",
+  "chain": "<chain name>"
+}
+```
+
+Initialize that goal's `state.json` per the canonical state.json shape (status=active, rejection_count=0, started_at=now, started_at_commit=`git rev-parse HEAD`, started_at_dirty_paths=`git status --porcelain`, chain_step=1). Append to its `log.md`:
 
 ```
 ## <ISO8601> — activated (chain step 1/<N>)
@@ -79,36 +94,84 @@ Re-enter the **goal** skill execution loop on the activated slug. Real work begi
 
 Triggered by the goal-judge skill after an approve verdict, when `chain.json` exists and contains the approved slug at the cursor.
 
-### 1. Read chain.json
+**Atomic write order matters.** Follow these steps in this order so an interruption leaves a recoverable state (see "Recovery from interrupted advance" below):
+
+### 1. Read chain.json and validate
 
 Read `cursor` and `slugs`. Confirm `slugs[cursor]` matches the just-approved slug. If mismatch, abort and tell the user — chain state is corrupt; manual recovery needed.
 
-### 2. Mark current goal done
+### 2. Mark current goal done (and record link approval)
 
 The just-approved goal: set `state.status = done` in its state.json. Leave its files in place (do NOT archive — chain artifacts stay for review).
 
+The judge skill on approve already appended `{"slug": <approved>, "approved_at": <ISO>}` to `chain.json.link_approvals` before handing off. Verify the entry is present; if missing, append it now (defensive — handles the case where chain advance is invoked manually for recovery).
+
 ### 3. Increment cursor
 
-`cursor += 1`.
+`cursor += 1`. Write `chain.json` with the new cursor.
 
 ### 4. Branch on cursor
 
 - **Cursor reached end (cursor == len(slugs)):** chain complete.
   - Set `chain.json`: `status=done`, `completed_at=<ISO8601>`.
-  - Set `.claude/goals/active.json` to `{"slug": null, "chain_completed_at": "<ISO8601>"}`.
-  - Tell the user: "Chain `<name>` complete. <N> goals approved sequentially."
+  - Write `.claude/goals/active.json` to the canonical terminal shape:
+    ```json
+    {
+      "slug": null,
+      "ended_at": "<ISO8601>",
+      "ended_reason": "chain_completed",
+      "previous_slug": "<final slug approved>",
+      "previous_chain": "<chain name>"
+    }
+    ```
+  - Tell the user: "Chain `<name>` complete. <N> goals approved sequentially. See `chain.json.link_approvals` for per-link approval timestamps."
   - Stop.
 
 - **More goals remain:** activate next.
   - `next_slug = slugs[cursor]`.
-  - Set `.claude/goals/active.json` to point to `next_slug`.
-  - Initialize `next_slug`'s `state.json` (status=active, rejection_count=0, started_at=now, chain_step=cursor+1).
+  - **Capture a fresh git baseline for the next link** (HEAD has likely not moved, but dirty paths have grown to include the previous link's output):
+    - `git rev-parse HEAD` → `started_at_commit`
+    - `git status --porcelain` → `started_at_dirty_paths` (includes the previous link's output as pre-existing dirt for the next link's judge)
+  - Initialize `next_slug`'s `state.json` per the canonical state.json shape (status=active, rejection_count=0, started_at=now, started_at_commit, started_at_dirty_paths, chain_step=cursor+1).
   - Append to `next_slug`'s `log.md`:
     ```
     ## <ISO8601> — activated (chain step <cursor+1>/<N>)
     Previous step approved. Starting: <next_slug>.
+    Baseline commit: <short SHA>.
+    Pre-existing dirty paths at activation: <list>.
     ```
+  - **Update `.claude/goals/active.json` LAST** to point to `next_slug`:
+    ```json
+    {
+      "slug": "<next_slug>",
+      "activated_at": "<ISO8601>",
+      "chain": "<chain name>"
+    }
+    ```
+    Writing active.json last is intentional — it's the pointer used by every other skill to find the current goal. If steps 1-4 partially fail, leaving active.json pointing at the previous (now-done) slug is a more recoverable state than leaving it stale-pointing-at-next-with-no-state.json.
   - Re-enter the **goal** skill execution loop on `next_slug`. Real work begins immediately.
+
+## Recovery from interrupted advance
+
+If chain advance is interrupted mid-way (process crash, user `/clear`, etc.), the on-disk state can be inconsistent. Detect and recover:
+
+**Symptom A — `chain.json.cursor` advanced but `active.json` still points at the previous (done) slug.**
+- Diagnosis: step 5 (active.json update) didn't run.
+- Recovery: read `chain.json.cursor`, derive `next_slug = slugs[cursor]`. If `<next_slug>/state.json` exists and shows `status=active`, just write `active.json` to point at it. If `state.json` is missing, treat as Symptom B.
+
+**Symptom B — `chain.json.cursor` advanced but `<next_slug>/state.json` is missing.**
+- Diagnosis: step 4's state.json initialization didn't run.
+- Recovery: re-run advance steps 4 (next-link branch) and 5 fresh. The previous link is already marked done; the cursor is already incremented; safe to redo.
+
+**Symptom C — `chain.json.cursor` not advanced but the previous link's `state.json` shows `status=done`.**
+- Diagnosis: step 3 (cursor increment) didn't run.
+- Recovery: increment cursor in chain.json and continue with steps 4-5.
+
+**Symptom D — `chain.json.link_approvals` missing the latest approved link.**
+- Diagnosis: step 2 entry was never appended (judge skill or chain skill missed it).
+- Recovery: append `{"slug": <previous>, "approved_at": <state.approved_at from previous slug's state.json>}` to chain.json.link_approvals. Cosmetic only; doesn't block advance.
+
+In all cases: never modify a `state.status=done` log retroactively. Add a new "## <ISO8601> — recovery" entry instead.
 
 ## Status mode
 
@@ -118,15 +181,19 @@ Print:
 Chain:     <name>
 Source:    <source_file>
 Status:    <active|done|aborted>
+Started:   <ISO8601>
+Completed: <ISO8601 or "—">
 Progress:  <cursor>/<N>
 Goals:
-  [✓] <slug 1>  — done
-  [→] <slug 2>  — active   (rejections: <n>/<max>)
+  [x] <slug 1>  — done       approved <ISO8601>
+  [>] <slug 2>  — active     rejections: <n>/<max>
   [ ] <slug 3>
   [ ] <slug 4>
 ```
 
-Use plain ASCII markers (no emoji unless the user enables them globally).
+Per-link `approved <ISO8601>` is read from `chain.json.link_approvals[]` (matched by slug). For the active link, show rejection count from its `state.json`. For pending links, show no detail.
+
+Use plain ASCII markers `[x]` (done), `[>]` (active), `[ ]` (pending). No emoji.
 
 ## Interaction with goal-clear
 
