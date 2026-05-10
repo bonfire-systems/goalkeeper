@@ -127,6 +127,8 @@ Pre-existing dirty paths at activation (do NOT credit as goal work, but flag if 
 
 # Your task
 
+**Output the verdict ONCE.** Pre-think your reasoning before producing the structured response. Do not self-correct or revise individual DoD lines mid-response — finalize each MET/NOT MET decision before writing the verdict block.
+
 For each item in `definition_of_done`, decide whether it is met. Use BOTH the diff above AND the Read tool to read each modified/added file in full — diffs hide context. Be strict:
 
 - A criterion is "met" only if the diff or files demonstrate it concretely. "Probably done" = not met.
@@ -206,11 +208,11 @@ Parse the verdict (`approve` or `reject`).
 
    Rejection count: <n>/<max>
    ```
-3. **Threshold check:** if `rejection_count >= max_rejections`, set `state.status = needs_human`. Append:
+3. **Threshold check:** if `rejection_count >= max_rejections`, set `state.status = needs_human` and `state.needs_human_at = <ISO8601 now>`. Append:
    ```
    ## <ISO8601> — paused (max rejections)
    ```
-   Stop. Do NOT schedule a next iteration. Surface the fix-list to the user verbatim and instruct: fix manually, then `/goal-resume`.
+   Stop. Do NOT schedule a next iteration. Do NOT modify `active.json` — it stays in active shape because `needs_human` is paused-awaiting-human, not termination. Surface the fix-list to the user verbatim and instruct: fix manually, then `/goal-resume` (which will ask whether to reset the rejection counter).
 4. **Below threshold:** the executing agent (the goal skill on next wakeup) will read the fix-list from log and address it. Schedule the next wakeup per cache-aware rules in the goal skill.
 
 ## When invoked on demand (advisory)

@@ -50,10 +50,11 @@ The `chain` field is OPTIONAL — present only when activation was driven by `/g
   "last_judge_verdict": "approve" | "reject" | null,
   "approved_at": "<ISO8601>",
   "paused_at": "<ISO8601>",
-  "resumed_at": "<ISO8601>"
+  "resumed_at": "<ISO8601>",
+  "needs_human_at": "<ISO8601>"
 }
 ```
-`status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths` are REQUIRED on activation. `chain_step` SHOULD be present when the goal is part of a chain (denormalized for log clarity; chain.json is the source of truth for cursor). Other fields are populated as the goal progresses.
+`status`, `rejection_count`, `started_at`, `started_at_commit`, `started_at_dirty_paths` are REQUIRED on activation. `chain_step` SHOULD be present when the goal is part of a chain (denormalized for log clarity; chain.json is the source of truth for cursor). Timestamp fields populate as the goal transitions: `approved_at` on judge approve, `paused_at`/`resumed_at` on `/goal-pause`/`/goal-resume`, and `needs_human_at` when `rejection_count` reaches `max_rejections` and status flips to `needs_human`.
 
 ### `.claude/goals/chain.json`
 

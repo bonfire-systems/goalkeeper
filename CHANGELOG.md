@@ -7,7 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.2] - 2026-05-10
+## [0.1.3] - 2026-05-10
+
+Spec-tightening release driven by findings from the rejection-cycle
+dogfood (one natural reject-then-fix-then-approve cycle on a
+contributing-md goal, plus a synthetic max_rejections threshold test).
+
+### Added
+
+- `skills/goal.md` — `needs_human_at` timestamp added to the canonical
+  state.json schema, parallel to `approved_at` / `paused_at` /
+  `resumed_at`. Populated when `rejection_count` reaches
+  `max_rejections` and status flips to `needs_human`.
+- `CONTRIBUTING.md` — first contributor guide. Sections cover
+  adding a skill, writing a contract, and running a dogfood loop
+  with a concrete worked-example session. Produced by the
+  rejection-cycle dogfood (rejected on first pass for a placeholder,
+  approved on second pass after the fix-list was addressed).
+
+### Changed
+
+- `skills/goal-judge.md` — subagent prompt template gained an
+  explicit "Output the verdict ONCE. Pre-think your reasoning before
+  producing the structured response. Do not self-correct or revise
+  individual DoD lines mid-response" instruction. Removes the
+  in-response self-correction observed during the first reject-cycle
+  judgment (judge marked one DoD NOT MET then corrected to MET inside
+  the same verdict).
+- `skills/goal-judge.md` — `On reject` threshold-check step now
+  explicitly sets `state.needs_human_at` and clarifies that
+  `active.json` is NOT touched on `needs_human` (the goal is paused
+  awaiting human input, not terminated).
+
+### Verified by dogfood
+
+- Validator-vs-judge separation works as designed: a validator-
+  passing file does not mean a judge-approving file. The contributing-
+  md goal had a loose validator (file existence + section headers)
+  and a strict DoD (no placeholders, concrete examples). First pass
+  passed validator and was rejected by the judge; second pass passed
+  both.
+- Judge correctly distinguishes literal placeholders from rule-
+  documentation references (e.g. "avoid 'TODO: real implementation'
+  patterns" is rule discussion, not a violation).
+- Fix-list flow works: executing agent reads the latest "judge
+  rejected" block from log.md and addresses each item before re-
+  judging. log.md is functional as the message bus between
+  iterations.
+- max_rejections threshold logic is correct: synthetic test with
+  rejection_count=4 → simulated 5th reject → state.status correctly
+  flipped to `needs_human`, log captured the paused entry, active.json
+  correctly stayed in active shape.
+
+
 
 Spec-tightening release driven by findings from the second dogfood run
 (`/goal-chain` end-to-end on the goalkeeper repo itself, 2 links, both
