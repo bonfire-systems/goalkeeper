@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.7] - 2026-05-10
+## [0.1.8] - 2026-05-10
+
+### Added
+
+- `.github/workflows/test.yml` — GitHub Actions workflow running on
+  every push to main and every PR. Steps:
+  1. Install pyyaml + jsonschema.
+  2. Run `scripts/validate-contracts.py` (every contract conforms
+     to the schema).
+  3. Run `scripts/test-lifecycle.py` (54-assertion state-machine suite).
+  4. JSON-lint the manifest files (plugin.json, marketplace.json,
+     contract.schema.json).
+  5. Verify each `skills/<name>/SKILL.md` exists with frontmatter
+     declaring `name: <name>` matching the directory.
+
+### Why
+
+This locks in the regression protection from v0.1.4 (schema validity)
+and v0.1.7 (lifecycle suite) so future contributors can't accidentally
+ship a YAML-broken contract or a SKILL.md naming mismatch. The skill-
+naming check would have caught the v0.1.6 layout mistake at PR time
+instead of release time.
+
+
 
 ### Added
 

@@ -1,0 +1,57 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install validation deps
+        run: pip install pyyaml jsonschema
+
+      - name: Validate every contract against the schema
+        run: python3 scripts/validate-contracts.py
+
+      - name: Run the lifecycle state-machine suite
+        run: python3 scripts/test-lifecycle.py
+
+      - name: Lint plugin manifest JSON
+        run: |
+          python3 -c "import json; json.load(open('.claude-plugin/plugin.json'))"
+          python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))"
+          python3 -c "import json; json.load(open('schemas/contract.schema.json'))"
+
+      - name: Verify SKILL.md frontmatter on every skill
+        run: |
+          set -e
+          for skill_dir in skills/*/; do
+            skill_name="$(basename "$skill_dir")"
+            skill_file="${skill_dir}SKILL.md"
+            if [ ! -f "$skill_file" ]; then
+              echo "FAIL: $skill_dir is missing SKILL.md"
+              exit 1
+            fi
+            # First line must be ---, frontmatter must contain a `name:` line
+            if ! head -1 "$skill_file" | grep -qx -- "---"; then
+              echo "FAIL: $skill_file does not start with frontmatter delimiter"
+              exit 1
+            fi
+            if ! grep -qE "^name: $skill_name\$" "$skill_file"; then
+              echo "FAIL: $skill_file frontmatter name does not match directory ($skill_name)"
+              exit 1
+            fi
+          done
+          echo "All 7 skills have correct SKILL.md + matching frontmatter name."
