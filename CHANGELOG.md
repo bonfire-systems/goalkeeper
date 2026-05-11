@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-11
+
+**New primitive: missions.** One level above goals. Where the judge gates a goal against its Definition of Done, the supervisor gates a *mission* against its charter and adaptively decides what goal to run next based on the prior goal's actual output. Built because the existing chain primitive commits to a linear sequence at chain-start, which doesn't fit arcs where the shape of step N+1 depends on what step N actually produced (e.g., V2 cutovers, multi-phase migrations, anything with branch-or-iterate decisions between goals).
+
+### Added
+
+- `skills/goal-supervisor/SKILL.md` — new skill `/goalkeeper:goal-supervisor`. Invoke after any goal completes; reads `.claude/mission.md` + the just-ended goal's artifacts; spawns a fresh-context subagent that returns `PROCEED`/`DONE`/`ESCALATE`. On `PROCEED` it hands off to `/goalkeeper:goal-prep` with a drafted next-objective; on `DONE` it writes `.claude/mission-completed.md` with success-condition evidence; on `ESCALATE` it surfaces the ambiguity to the user.
+- New mission-layer files (all under `.claude/`, NOT auto-gitignored — author your charter the way you want it tracked):
+  - `mission.md` — user-authored charter (objective, success condition, constraints, legal next-goal shapes, "done is not" non-goals). Required for supervisor to run.
+  - `mission.json` — supervisor state (status, goals_completed[], supervisor_verdicts[]).
+  - `mission-log.md` — append-only mission-level audit trail.
+  - `mission-completed.md` — final snapshot written on supervisor `DONE`.
+- `skills/goal/SKILL.md` canonical-state-shapes section gained the `mission.json` schema.
+- `scripts/test-lifecycle.py` — 3 new tests for supervisor state transitions (`PROCEED`/`DONE`/`ESCALATE`). 80/80 assertions across 14 tests.
+- `README.md` — new "Missions — supervised iterative arcs" section explaining the primitive and when to reach for missions vs chains.
+
+### Design decisions worth flagging
+
+- **Supervisor's `PROCEED` drafts but does NOT auto-activate.** The drafted next-goal contract goes through `/goalkeeper:goal-prep`'s user-review flow before activation. The human-in-the-loop checkpoint at prep is the safety property; bypassing it is a v0.3 conversation, not v0.2 default.
+- **Supervisor is NOT a chain.** Chains commit linearly at start. Missions adaptively decide each next step. Documentation pushes hard on picking the right primitive — chains for sequenceable work known up front, missions for adaptive arcs.
+- **Fresh-context supervisor subagent.** Same discipline as the judge: independent reasoning, no shared rationalization with the executing or prior agents. Output ONCE, no self-correction, structured verdict format.
+- **One supervisor invocation per goal-completion.** Re-invoking without a new completed goal is a no-op (returns last verdict). Prevents runaway loops.
+- **Append-only mission-log.** Same invariant as per-goal logs.
+- **No mission DAG / branching in v0.2.** Linear arcs only. DAG missions are a v0.3+ conversation.
+
+### Backward compat
+
+- Existing chains, goals, contracts, validators, judges: unchanged. No spec edits to `goal/SKILL.md`, `goal-prep/SKILL.md`, `goal-judge/SKILL.md`, `goal-chain/SKILL.md`, `goal-pause/SKILL.md`, `goal-resume/SKILL.md`, or `goal-clear/SKILL.md` beyond adding the `mission.json` schema reference.
+- `/goalkeeper:goal-supervisor` is opt-in: if `mission.md` doesn't exist, the skill halts with a usage message. Users who never want missions can ignore the feature entirely.
+- Plugin version bumps from `0.1.11` to `0.2.0` because this adds a new primitive and a new skill. No breaking changes — all 0.1.x contracts/chains/state shapes continue to work unmodified.
+
 ## [0.1.11] - 2026-05-11
 
 Tiny fix surfaced while staging a goalkeeper demo on a separate repo

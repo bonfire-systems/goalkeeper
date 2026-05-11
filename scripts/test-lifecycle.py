@@ -348,6 +348,120 @@ def test_judge_reject_below_threshold(goals: Path, v: bool) -> Test:
     return t
 
 
+def write_mission(claude_dir: Path, **fields) -> dict:
+    """Write .claude/mission.json per v0.2 canonical shape."""
+    payload = {
+        "name": "test-mission",
+        "status": "active",
+        "started_at": iso(),
+        "goals_completed": [],
+        "supervisor_verdicts": [],
+    }
+    payload.update(fields)
+    (claude_dir / "mission.json").write_text(json.dumps(payload, indent=2))
+    return payload
+
+
+def test_supervisor_proceed_verdict(goals: Path, v: bool) -> Test:
+    """v0.2: supervisor on PROCEED — drafts next-objective, appends to
+    mission.json.supervisor_verdicts + mission-log.md, mission stays active.
+    Critically: previous goal's state stays untouched (supervisor is read-only
+    on prior-goal state)."""
+    t = Test("supervisor: PROCEED on goal-done → next objective drafted (v0.2)", v)
+    claude = goals.parent
+    # Prior goal done, archived
+    archive = goals / "_archive"
+    archive.mkdir(exist_ok=True)
+    write_state(goals, "prior", status="done", last_judge_verdict="approve",
+                approved_at=iso())
+    shutil.move(str(goals / "prior"), str(archive / "prior-test"))
+    write_active_terminal(goals, "done", previous_slug="prior")
+    # Mission initialized
+    write_mission(claude, name="test-mission", status="active")
+    # Apply supervisor PROCEED verdict
+    mission = read_json(claude / "mission.json")
+    mission["goals_completed"].append({
+        "slug": "prior", "result": "approved", "rejection_count": 0,
+        "ended_at": iso(),
+    })
+    mission["supervisor_verdicts"].append({
+        "at": iso(), "prior_slug": "prior", "verdict": "proceed",
+        "next_objective": "<drafted next goal objective>",
+    })
+    (claude / "mission.json").write_text(json.dumps(mission, indent=2))
+    mission_after = read_json(claude / "mission.json")
+    active_after = read_json(goals / "active.json")
+    t.check('mission.status stays "active" on PROCEED',
+            mission_after["status"] == "active")
+    t.check("mission.goals_completed has prior goal recorded",
+            len(mission_after["goals_completed"]) == 1)
+    t.check('mission.supervisor_verdicts has "proceed" entry',
+            mission_after["supervisor_verdicts"][-1]["verdict"] == "proceed")
+    t.check("next_objective captured",
+            mission_after["supervisor_verdicts"][-1]["next_objective"] != "")
+    t.check("active.json still terminal (supervisor does not auto-activate next goal)",
+            active_after["slug"] is None)
+    return t
+
+
+def test_supervisor_done_verdict(goals: Path, v: bool) -> Test:
+    """v0.2: supervisor on DONE — mission.status → done, completed_at set."""
+    t = Test("supervisor: DONE → mission terminal (v0.2)", v)
+    claude = goals.parent
+    write_active_terminal(goals, "done", previous_slug="final")
+    write_mission(claude, name="test-mission", status="active",
+                  goals_completed=[
+                      {"slug": "first", "result": "approved", "rejection_count": 0,
+                       "ended_at": iso()},
+                      {"slug": "final", "result": "approved", "rejection_count": 1,
+                       "ended_at": iso()},
+                  ])
+    # Apply supervisor DONE verdict
+    mission = read_json(claude / "mission.json")
+    mission["status"] = "done"
+    mission["completed_at"] = iso()
+    mission["supervisor_verdicts"].append({
+        "at": iso(), "prior_slug": "final", "verdict": "done",
+        "evidence": ["success-condition item 1 satisfied by final/log.md"],
+    })
+    (claude / "mission.json").write_text(json.dumps(mission, indent=2))
+    mission_after = read_json(claude / "mission.json")
+    t.check('mission.status flipped to "done"', mission_after["status"] == "done")
+    t.check("mission.completed_at set",
+            mission_after.get("completed_at") is not None)
+    t.check('mission.supervisor_verdicts has "done" entry',
+            mission_after["supervisor_verdicts"][-1]["verdict"] == "done")
+    t.check("goals_completed preserved across DONE transition",
+            len(mission_after["goals_completed"]) == 2)
+    return t
+
+
+def test_supervisor_escalate_verdict(goals: Path, v: bool) -> Test:
+    """v0.2: supervisor on ESCALATE — mission.status → escalated, no auto-next."""
+    t = Test("supervisor: ESCALATE → mission paused for human input (v0.2)", v)
+    claude = goals.parent
+    write_active_terminal(goals, "done", previous_slug="ambiguous")
+    write_mission(claude, name="test-mission", status="active")
+    # Apply ESCALATE
+    mission = read_json(claude / "mission.json")
+    mission["status"] = "escalated"
+    mission["supervisor_verdicts"].append({
+        "at": iso(), "prior_slug": "ambiguous", "verdict": "escalate",
+        "escalation": "prior goal's metric X is not in the success-condition catalog",
+    })
+    (claude / "mission.json").write_text(json.dumps(mission, indent=2))
+    mission_after = read_json(claude / "mission.json")
+    t.check('mission.status flipped to "escalated"',
+            mission_after["status"] == "escalated")
+    t.check("escalation reason captured in last verdict",
+            mission_after["supervisor_verdicts"][-1].get("escalation") is not None)
+    t.check("mission NOT marked done (escalation is paused, not terminal)",
+            mission_after["status"] != "done")
+    t.check("active.json untouched (supervisor does not modify active state)",
+            read_json(goals / "active.json")["slug"] is None)
+    return t
+
+
 def test_validator_baseline_capture(goals: Path, v: bool) -> Test:
     """v0.1.9: state.json carries validator_baseline_result + failing_paths
     so the judge can distinguish goal-caused vs pre-existing validator failures."""
@@ -459,6 +573,9 @@ ALL_TESTS = [
     test_judge_reject_below_threshold,
     test_judge_advisory_no_state_change,
     test_validator_baseline_capture,
+    test_supervisor_proceed_verdict,
+    test_supervisor_done_verdict,
+    test_supervisor_escalate_verdict,
 ]
 
 

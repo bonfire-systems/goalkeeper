@@ -232,22 +232,65 @@ The judge still gates final approval against the unified DoD; the executing agen
 
 If you can list the roles in dependency order and each role can complete independently before the next starts, use Pattern A. Reach for Pattern B only when the roles must touch the same code in the same edit.
 
+## Missions — supervised iterative arcs (v0.2)
+
+For multi-goal work where each next goal's shape is informed by the prior goal's actual output, the supervisor primitive sits one level above goals. Where the judge gates a *goal* against its Definition of Done, the supervisor gates the *mission* against its charter and adaptively decides what goal to run next.
+
+Authoring a mission charter at `.claude/mission.md`:
+
+```markdown
+# Mission: v2-cutover
+
+## Objective
+Ship V2 cold-inbound to production safely.
+
+## Success condition
+All 6 cutover gates pass on a 2-week shadow window + 5%→25%→100% canary clean.
+
+## Constraints
+- Never send V2 outbound during shadow.
+- Any cutover gate fail → fix + restart shadow.
+- Max 2 weeks elapsed before user checkpoint.
+
+## Legal next-goal shapes
+- shadow-infra — assemble pipeline + tee + writer
+- gate-fix — patch a specific failing axis from shadow data
+- canary-rollout — % hash routing
+- rollback — revert canary % to 0
+
+## Done is not
+- Just "validator passes." Done is "6 gates pass on shadow + canary green at 100%."
+```
+
+After a goal completes, `/goalkeeper:goal-supervisor` reads the charter + the prior goal's artifacts and decides:
+
+- **PROCEED** — drafts the next goal's objective (informed by what the prior goal actually produced) and hands off to `/goalkeeper:goal-prep` for user-reviewable contract drafting.
+- **DONE** — mission's success condition is satisfied; writes `.claude/mission-completed.md` with evidence per success-condition item.
+- **ESCALATE** — supervisor can't decide; surfaces the ambiguity to the user with concrete required input.
+
+Missions are NOT chains. Chains commit to a pre-determined linear sequence; missions adaptively decide the next goal based on prior outputs. Pick the right primitive: chains for sequenceable work known up front, missions for arcs where the shape of step N+1 depends on what step N actually produced.
+
 ## State and storage
 
 ```
-.claude/goals/
-  active.json                    # pointer to current slug (or terminal record)
-  chain.json                     # current chain, if any
-  .gitignore                     # ignores all goal dirs except shared/ (opt-in)
-  <slug>/
-    contract.md                  # the spec
-    state.json                   # status, rejection_count, git baseline, validator/judge results
-    log.md                       # append-only checkpoint + verdict log
-  _archive/                      # cleared goals (moved, never deleted)
-  shared/                        # opt-in committed contracts for team sharing
+.claude/
+  mission.md                     # user-authored charter (v0.2, opt-in)
+  mission.json                   # supervisor state
+  mission-log.md                 # append-only mission-level audit trail
+  mission-completed.md           # final snapshot on supervisor DONE
+  goals/
+    active.json                  # pointer to current slug (or terminal record)
+    chain.json                   # current chain, if any
+    .gitignore                   # ignores all goal dirs except shared/ (opt-in)
+    <slug>/
+      contract.md                # the spec
+      state.json                 # status, rejection_count, git baseline, validator/judge results
+      log.md                     # append-only checkpoint + verdict log
+    _archive/                    # cleared goals (moved, never deleted)
+    shared/                      # opt-in committed contracts for team sharing
 ```
 
-By default everything under `.claude/goals/` is gitignored. To share a contract with your team, place it under `.claude/goals/shared/<slug>/contract.md`.
+By default everything under `.claude/goals/` is gitignored. To share a contract with your team, place it under `.claude/goals/shared/<slug>/contract.md`. The mission files (`mission.md`/`mission.json`/`mission-log.md`) live at `.claude/` root and are NOT auto-gitignored — author your mission charter the way you want it tracked.
 
 ### Canonical state shapes
 

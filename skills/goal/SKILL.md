@@ -78,6 +78,24 @@ The `chain` field is OPTIONAL — present only when activation was driven by `/g
 ```
 `link_approvals` accumulates one entry per judge-approved link. Provides chain-level visibility independent of per-link state.json files.
 
+### `.claude/mission.json` (v0.2 — supervisor layer)
+
+```json
+{
+  "name": "<from mission.md heading>",
+  "status": "active" | "done" | "escalated",
+  "started_at": "<ISO8601>",
+  "completed_at": "<ISO8601 or absent>",
+  "goals_completed": [
+    {"slug": "<slug>", "result": "approved" | "cleared", "rejection_count": <n>, "ended_at": "<ISO8601>"}
+  ],
+  "supervisor_verdicts": [
+    {"at": "<ISO8601>", "prior_slug": "<slug>", "verdict": "proceed" | "done" | "escalate", "next_objective": "<if proceed>", "escalation": "<if escalate>"}
+  ]
+}
+```
+The mission layer sits ONE LEVEL ABOVE chains. Missions adaptively decide the next goal based on the prior goal's actual output, where chains commit to a linear sequence at chain-start. Companion files: `mission.md` (user-authored charter — required to invoke `/goal-supervisor`), `mission-log.md` (append-only mission-level audit trail), `mission-completed.md` (final snapshot written when supervisor verdict is `done`). See `skills/goal-supervisor/SKILL.md` for the full state machine.
+
 ## Decide mode from args
 
 - `args` non-empty → **set mode** (start or resume a goal)
