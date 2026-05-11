@@ -6,10 +6,25 @@
   <p>
     <a href="https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml"><img alt="test" src="https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml/badge.svg"></a>
     <img alt="license" src="https://img.shields.io/badge/license-MIT-0E7C66">
-    <img alt="version" src="https://img.shields.io/badge/version-0.1.10-0E7C66">
+    <img alt="version" src="https://img.shields.io/badge/version-0.1.11-0E7C66">
     <img alt="claude-code" src="https://img.shields.io/badge/claude--code-plugin-0E7C66">
   </p>
 </div>
+
+<!--
+DEMO SLOT — when you record an asciinema cast, replace this comment with:
+
+<div align="center">
+  <a href="https://asciinema.org/a/XXXXXX">
+    <img src="https://asciinema.org/a/XXXXXX.svg" alt="goalkeeper reject-then-approve demo" width="720">
+  </a>
+</div>
+
+Swap XXXXXX for the cast ID returned by `asciinema upload demo.cast`.
+Until then, the example below is the canonical "real reject-cycle" reference.
+-->
+
+> **Real reject-cycle, 3 minutes wall-clock.** Goalkeeper caught a `MAX_RUNTIME_MS = 9999 // TODO` sentinel placeholder in a benchmark test where the validator passed both rounds. Round 1: validator green, judge **reject** on DoD #3 + #7 with a 3-step fix-list. Round 2: real threshold (500ms = 10x measured baseline) with justification, validator green, judge **approve**. Full transcript with quoted verdicts: [`docs/demo.md`](./docs/demo.md).
 
 ---
 
