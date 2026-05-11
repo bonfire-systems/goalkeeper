@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-05-11
+
+Tiny fix surfaced while staging a goalkeeper demo on a separate repo
+(idbro). `scripts/validate-contracts.py` crashed with `ValueError: ... is
+not in the subpath of ...` when given an explicit path argument pointing
+at a contract outside the goalkeeper repo.
+
+### Fixed
+
+- `scripts/validate-contracts.py` — falls back to the absolute path when
+  a target file is outside `REPO_ROOT` instead of crashing. Repo-internal
+  files still display as relative paths (tidy output). Lets the script
+  validate contracts in other repos when called with explicit CLI args:
+  `python3 scripts/validate-contracts.py /other/repo/.claude/goals/foo/contract.md`.
+
 ## [0.1.10] - 2026-05-10
 
 Pre-launch branding pass. No skill behavior or spec changes — purely

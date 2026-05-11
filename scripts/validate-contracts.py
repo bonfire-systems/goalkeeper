@@ -87,7 +87,14 @@ def main() -> int:
 
     errors = 0
     for f in files:
-        rel = f.relative_to(REPO_ROOT)
+        # Use repo-relative path for files inside REPO_ROOT (tidy output);
+        # fall back to the absolute path for files outside the repo
+        # (so the script can validate contracts in other repos when
+        # given explicit paths via the CLI args).
+        try:
+            rel = f.relative_to(REPO_ROOT)
+        except ValueError:
+            rel = f
         fm = extract_frontmatter(f)
 
         if fm is None:
