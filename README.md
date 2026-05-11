@@ -24,7 +24,7 @@ Swap XXXXXX for the cast ID returned by `asciinema upload demo.cast`.
 Until then, the example below is the canonical "real reject-cycle" reference.
 -->
 
-> **Real reject-cycle, 3 minutes wall-clock.** Goalkeeper caught a `MAX_RUNTIME_MS = 9999 // TODO` sentinel placeholder in a benchmark test where the validator passed both rounds. Round 1: validator green, judge **reject** on DoD #3 + #7 with a 3-step fix-list. Round 2: real threshold (500ms = 10x measured baseline) with justification, validator green, judge **approve**. Full transcript with quoted verdicts: [`docs/demo.md`](./docs/demo.md).
+> **Real reject-cycle, 3 minutes wall-clock.** Goalkeeper caught a `MAX_RUNTIME_MS = 9999 // TODO` sentinel placeholder in a benchmark test where the validator passed both rounds. Round 1: validator green, judge **reject** on DoD #3 + #7 with a 3-step fix-list. Round 2: real threshold (500ms = 10x measured baseline) with justification, validator green, judge **approve**. Full transcript with quoted verdicts: [`docs/demo.md`](./docs/demo.md). Long-form writeup on [dev.to](https://dev.to/itsuzef/the-judge-gate-why-a-passing-validator-isnt-a-finished-feature-f2f).
 
 ---
 
