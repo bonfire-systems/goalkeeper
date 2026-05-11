@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 96" fill="none">
+  <title>goalkeeper</title>
+  <desc>Logo lockup: gate mark + lowercase monospace wordmark.</desc>
+  <!-- Mark -->
+  <g transform="translate(16, 16)">
+    <rect x="4" y="0" width="56" height="7" rx="1" fill="#0E7C66"/>
+    <rect x="5" y="0" width="7" height="60" rx="1" fill="#0E7C66"/>
+    <rect x="28" y="0" width="7" height="60" rx="1" fill="#0E7C66"/>
+    <rect x="51" y="0" width="7" height="60" rx="1" fill="#0E7C66"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="112" y="64"
+        font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace"
+        font-size="56"
+        font-weight="600"
+        letter-spacing="-1.2"
+        fill="#0E7C66">goalkeeper</text>
+</svg>

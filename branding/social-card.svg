@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <title>goalkeeper — durable goal execution for Claude Code</title>
+  <desc>Social card / OG image. 1200x630 for Twitter, Slack, Discord link unfurls.</desc>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#0A0A0A"/>
+
+  <!-- Subtle horizontal rule under the mark area -->
+  <rect x="0" y="200" width="1200" height="1" fill="#1F2937"/>
+
+  <!-- Logo lockup, top-left -->
+  <g transform="translate(80, 110)">
+    <!-- Mark -->
+    <g transform="translate(0, 0)">
+      <rect x="4" y="0" width="56" height="7" rx="1" fill="#0E7C66"/>
+      <rect x="5" y="0" width="7" height="60" rx="1" fill="#0E7C66"/>
+      <rect x="28" y="0" width="7" height="60" rx="1" fill="#0E7C66"/>
+      <rect x="51" y="0" width="7" height="60" rx="1" fill="#0E7C66"/>
+    </g>
+    <!-- Wordmark -->
+    <text x="96" y="50"
+          font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace"
+          font-size="48"
+          font-weight="600"
+          letter-spacing="-1"
+          fill="#F5F5F4">goalkeeper</text>
+  </g>
+
+  <!-- Headline -->
+  <text x="80" y="320"
+        font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="72"
+        font-weight="700"
+        letter-spacing="-2"
+        fill="#F5F5F4">Set durable goals.</text>
+  <text x="80" y="400"
+        font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="72"
+        font-weight="700"
+        letter-spacing="-2"
+        fill="#0E7C66">Approve at the gate.</text>
+
+  <!-- Subhead -->
+  <text x="80" y="476"
+        font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="28"
+        font-weight="400"
+        fill="#9CA3AF">Contract-driven autonomous goal execution for Claude Code.</text>
+  <text x="80" y="514"
+        font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
+        font-size="28"
+        font-weight="400"
+        fill="#9CA3AF">A subagent judge gates completion against an explicit Definition of Done.</text>
+
+  <!-- Footer -->
+  <text x="80" y="580"
+        font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace"
+        font-size="22"
+        font-weight="500"
+        fill="#6B7280">github.com/itsuzef/goalkeeper</text>
+
+  <!-- Subtle right-side ornament: tall gate posts as a quiet visual rhyme -->
+  <g transform="translate(900, 100)" opacity="0.15">
+    <rect x="0" y="0" width="200" height="14" rx="2" fill="#0E7C66"/>
+    <rect x="0" y="0" width="14" height="430" rx="2" fill="#0E7C66"/>
+    <rect x="93" y="0" width="14" height="430" rx="2" fill="#0E7C66"/>
+    <rect x="186" y="0" width="14" height="430" rx="2" fill="#0E7C66"/>
+  </g>
+</svg>

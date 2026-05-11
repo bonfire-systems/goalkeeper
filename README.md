@@ -1,10 +1,33 @@
-# goalkeeper
+<div align="center">
+  <img src="branding/lockup.svg" alt="goalkeeper" width="360">
+  <br>
+  <h3>Set durable goals. Approve at the gate.</h3>
+  <p>Contract-driven autonomous goal execution for <a href="https://docs.claude.com/en/docs/claude-code/overview">Claude Code</a>.<br>A subagent judge gates completion against an explicit Definition of Done.</p>
+  <p>
+    <a href="https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml"><img alt="test" src="https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml/badge.svg"></a>
+    <img alt="license" src="https://img.shields.io/badge/license-MIT-0E7C66">
+    <img alt="version" src="https://img.shields.io/badge/version-0.1.10-0E7C66">
+    <img alt="claude-code" src="https://img.shields.io/badge/claude--code-plugin-0E7C66">
+  </p>
+</div>
 
-[![test](https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml/badge.svg)](https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml)
+---
 
-Durable, contract-driven goal execution for [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Set a goal once, walk away, come back to a finished task — or a clear list of why it isn't done yet.
+## How it differs
 
-Inspired by [OpenAI Codex `/goal`](https://developers.openai.com/codex/use-cases/follow-goals) and Geoffrey Huntley's [Ralph loop](https://ghuntley.com/ralph/), with one key addition: a **subagent judge** that gates completion against an explicit Definition of Done.
+|  | OpenAI Codex `/goal` | Ralph loop | **goalkeeper** |
+|---|---|---|---|
+| Durable goal across many turns | ✓ | ✓ | ✓ |
+| Validator back-pressure | optional | core | core |
+| **Independent judge gate against an explicit Definition of Done** | — | — | **core** |
+| Anti-placeholder rule (stubs / `.todo` / `it.only` auto-reject) | — | informal | **enforced** |
+| Linear chains of role-specific goals with judge-gated handoff | — | — | **`/goal-chain`** |
+| Auto-pauses after N consecutive rejections | — | — | **5 (configurable)** |
+| Append-only checkpoint log per goal | — | informal | enforced |
+| Spec lives in | CLI prompt | `PROMPT.md` | `contract.md` (validated against JSON Schema) |
+| Pre-existing validator failures distinguished from goal-caused | — | — | **`validator_baseline_*`** |
+
+Inspired by [OpenAI Codex `/goal`](https://developers.openai.com/codex/use-cases/follow-goals) and Geoffrey Huntley's [Ralph loop](https://ghuntley.com/ralph/), with one key addition: the judge.
 
 ## Why
 
@@ -213,7 +236,7 @@ By default everything under `.claude/goals/` is gitignored. To share a contract 
 
 ### Canonical state shapes
 
-The skills (`goal`, `goal-clear`, `goal-judge`, `goal-chain`) all read and write the same shapes. Single source of truth lives in [`skills/goal.md`](./skills/goal.md) under "Canonical state shapes"; the reference here is for users.
+The skills (`goal`, `goal-clear`, `goal-judge`, `goal-chain`) all read and write the same shapes. Single source of truth lives in [`skills/goal/SKILL.md`](./skills/goal/SKILL.md) under "Canonical state shapes"; the reference here is for users.
 
 **`active.json`** — exactly two shapes, active or terminal:
 
@@ -252,3 +275,13 @@ The skills (`goal`, `goal-clear`, `goal-judge`, `goal-chain`) all read and write
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+## Brand
+
+Brand assets (logo, wordmark, social card) live in [`branding/`](./branding/) — see the [brand README](./branding/README.md) for usage notes, color palette, and SVG→PNG conversion. Drafts and alternates are intentionally outside this repo.
+
+---
+
+<div align="center">
+  <img src="branding/mark.svg" alt="goalkeeper" width="48">
+</div>

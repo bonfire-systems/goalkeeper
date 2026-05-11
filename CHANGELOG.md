@@ -7,7 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.9] - 2026-05-10
+## [0.1.10] - 2026-05-10
+
+Pre-launch branding pass. No skill behavior or spec changes — purely
+README hero polish and ship-ready brand assets.
+
+### Added
+
+- `branding/mark.svg` — icon mark (64×64). Three vertical goal-posts
+  topped by a crossbar; reads as both soccer goal and judicial gate.
+- `branding/wordmark.svg` — lowercase monospace wordmark (480×96).
+- `branding/lockup.svg` — mark + wordmark (640×96). The "logo proper."
+- `branding/social-card.svg` — 1200×630 OG image for Twitter / Slack /
+  Discord link unfurls. Tagline: "Set durable goals. Approve at the gate."
+- `branding/README.md` — usage notes, color palette, typography stack,
+  SVG→PNG conversion recipes, and don't-do list.
+- README "Brand" section linking to the brand kit.
+- README footer mark.
+
+### Changed
+
+- README hero rewritten:
+  - Lockup image above the fold
+  - Tagline as h3 subtitle: "Set durable goals. Approve at the gate."
+  - Badge row: test (CI), license, version, claude-code-plugin
+  - **Comparison table** showing goalkeeper vs OpenAI Codex `/goal` vs
+    Ralph loop across 9 dimensions (durable goals, validator, judge
+    gate, anti-placeholder, chains, auto-pause, append-only log, spec
+    location, validator-baseline subtraction). The judge column is the
+    elevator pitch.
+  - "Inspired by..." moved below the comparison so the differentiation
+    is visible first.
+- README link to canonical state shapes updated from `skills/goal.md`
+  to `skills/goal/SKILL.md` (path fix after the v0.1.6 layout change).
+
+### Brand kit
+
+- **Primary color:** `#0E7C66` (deep teal-emerald)
+- **Typography (wordmark):** monospace stack — `ui-monospace,
+  'JetBrains Mono', 'SF Mono', Menlo, Consolas`
+- **Typography (headlines):** system sans
+- **Tagline:** "Set durable goals. Approve at the gate."
+
+Drafts and alternate concepts live in
+`~/Documents/context-relay/projects/goalkeeper/branding/` (not in
+this repo per the hybrid branding-placement decision).
+
+
 
 Spec extension driven by the v2-shadow-pipeline dogfood on the
 agently-ai codebase: the contract's validator was `npm run test &&
