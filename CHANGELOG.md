@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-11
+
+**Executor-subagent chain execution.** Chains now run each goal's implementation work in a fresh-context subagent instead of the main conversation. Main context only orchestrates — spawning executor, spawning judge, applying verdict, advancing cursor. This is the load-bearing change that lets multi-goal chains run autonomously without main-context aging out.
+
+### Why
+
+In v0.2, `/goal-chain` advanced through goals by re-entering the `/goal` skill execution loop in the SAME conversation context. Each goal's work — file edits, validator runs, debugging — accumulated in main context. A typical 8-9 goal chain would burn through context budget around goal 2-3 and force the user to start fresh sessions per goal, defeating the point of "linear sequence with judge gates."
+
+The judge-as-subagent pattern v0.2 already had was half the answer. v0.3 extends it: executor is ALSO a subagent. Main context cost per goal drops from "all the implementation work" (tens of thousands of tokens accumulating) to "executor return summary + judge spawn" (~10K tokens, flat). A 9-goal chain that used to need 9 sessions can run in one.
+
+### Changed
+
+- `skills/goal-chain/SKILL.md` Step 6 (Start mode "Hand off to the goal skill") and Advance-mode next-link path:
+  - **Before:** "Re-enter the goal skill execution loop on the activated slug. Real work begins immediately in this turn."
+  - **After:** Spawn a fresh-context executor subagent via the Agent tool. Pass contract + log + chain context + repo state + a structured executor directive. The subagent does the implementation work end-to-end, runs the validator, and returns a structured summary (STATUS / SUMMARY / VALIDATOR_OUTPUT_TAIL / FILES_CHANGED / BLOCKERS). Main context then spawns the judge subagent, applies the verdict, and either advances cursor or re-spawns the executor with the judge's fix-list (within rejection budget).
+- `skills/goal/SKILL.md`:
+  - New top-level **Execution modes** section explaining inline (standalone `/goal`) vs subagent (chain-driven) execution. Both modes use the same state.json / log.md / active.json files and the same Execution Loop protocol — the only difference is who runs it.
+  - Execution Loop step 7 (Branch on validator) now branches per mode: inline mode invokes judge directly + uses ScheduleWakeup; subagent mode returns to chain orchestrator with structured summary.
+  - Execution Loop step 8 (Branch on judge verdict) marked as inline-mode-only. In subagent mode, the chain orchestrator handles this section.
+- `skills/goal-judge/SKILL.md`:
+  - Frontmatter description and new "Invocation sources" section explain three legitimate entry points: inline auto-fire from `/goal`, chain-orchestrator invocation after executor return, and on-demand `/goal-judge` for advisory review.
+  - Inputs section gains a "Subagent-mode extra context" note: when invoked by `/goal-chain`, the judge receives the executor's structured summary as a leading hint but MUST still independently verify against the contract — executor self-reports are not authoritative.
+
+### Migration notes
+
+- **Backward compatible at the state-file level.** chain.json / state.json / active.json / log.md shapes are unchanged. A v0.2 chain in progress can be resumed under v0.3 — the cursor advances correctly; only the execution mechanism differs.
+- **No breaking changes to contracts.** All v0.2 contract.md files remain valid. The validate-contracts.py schema is unchanged.
+- **Existing inline `/goal` usage unchanged.** Standalone `/goal "<objective>"` invocations still run in main context with ScheduleWakeup pacing. v0.3 only affects chain-driven execution.
+- **Chains now naturally finish in one session.** The recommended pattern is: prep all contracts in one session, then `/goal-chain` once and let it run all goals to completion in a single main-context conversation.
+
+### Design decisions worth flagging
+
+- **Executor subagent is fresh context, no conversation history.** This forces contracts to be fully self-contained at prep time. Any goal contract with checkpoint-1 questions ("ask user about X") is a smell; resolve those at prep, not during execution.
+- **Judge is still spawned by main context, not by executor.** This preserves the invariant that the judge sees an independent view (executor's diff + log + validator output) and reasons fresh. If the executor could spawn its own judge, the judge would be in the executor's sub-sub-context, with shared-rationalization risk.
+- **Reject + re-spawn cycle stays within main context.** If the judge rejects, main context re-spawns the executor with the original contract + log (which now includes the judge's fix-list) + a directive to address the fix-list. The executor runs in a fresh subagent each time, but the rejection_count and orchestration live in main. This caps loops at `max_rejections` without burning main-context budget on internal iterations.
+- **Subagent-mode does not need ScheduleWakeup.** The subagent runs end-to-end in one turn. ScheduleWakeup was an inline-mode concept for pacing long-running validators across main-conversation turns; subagents handle long validators within their own turn.
+
+### Discovery context
+
+The change was driven by hitting the v0.2 ceiling on a real 9-goal chain (v2-shadow-prod-ready in `agently-ai`). After 2 successful goal completions in the same main-conversation context, context budget became the constraint. The fix wasn't "smaller goals" or "more sessions" — it was extending the subagent pattern that v0.2 had already half-implemented for judges. See the chain's mission-log.md in that repo for the live discovery + decision.
+
 ## [0.2.0] - 2026-05-11
 
 **New primitive: missions.** One level above goals. Where the judge gates a goal against its Definition of Done, the supervisor gates a *mission* against its charter and adaptively decides what goal to run next based on the prior goal's actual output. Built because the existing chain primitive commits to a linear sequence at chain-start, which doesn't fit arcs where the shape of step N+1 depends on what step N actually produced (e.g., V2 cutovers, multi-phase migrations, anything with branch-or-iterate decisions between goals).

@@ -1,9 +1,19 @@
 ---
 name: goal-judge
-description: The gate. Reviews the active goalkeeper goal against its definition-of-done and either approves (advance / mark done) or rejects (with a structured fix-list). Auto-fired by the goal skill when the validator passes; can also be invoked on demand via /goal-judge for advisory review.
+description: The gate. Reviews the active goalkeeper goal against its definition-of-done and either approves (advance / mark done) or rejects (with a structured fix-list). Auto-fired by the goal skill when the validator passes (inline mode), or invoked by the goal-chain orchestrator after executor subagent returns (subagent mode, v0.3+). Can also be invoked on demand via /goal-judge for advisory review.
 ---
 
 You are operating the **goal-judge** skill — the gate that decides whether a goal is actually done, not just superficially passing the validator. The judge is what differentiates goalkeeper from a naive auto-loop.
+
+## Invocation sources (v0.3+)
+
+The judge is invoked from one of three places:
+
+1. **Inline mode** — `/goal` skill's execution loop auto-fires the judge when the validator passes (the historical default).
+2. **Subagent mode** — `/goal-chain` orchestrator invokes the judge AFTER the executor subagent returns with `STATUS: validator_pass`. The executor never invokes the judge itself; that responsibility moved up to the chain orchestrator in v0.3.
+3. **Advisory on-demand** — user runs `/goal-judge` directly for a non-binding read on an in-progress goal (does not advance state).
+
+The verdict logic and grading rubric are identical across all three sources. Only the invocation context differs.
 
 ## Inputs
 
@@ -15,6 +25,7 @@ You are operating the **goal-judge** skill — the gate that decides whether a g
 - `state.validator_baseline_result` — `"pass" | "fail" | "not_runnable" | null` — was the validator passing at activation? Captured by `/goal-prep`.
 - `state.validator_baseline_failing_paths` — paths the validator flagged at baseline; if the final validator failure is on these same paths, it's pre-existing dirt, not goal-caused
 - `args` — optional: `--mode=inline|subagent` to override `judge_mode` from contract
+- **Subagent-mode extra context** — when invoked by `/goal-chain` after executor return, the orchestrator passes the executor's structured summary (STATUS, SUMMARY, VALIDATOR_OUTPUT_TAIL, FILES_CHANGED, BLOCKERS) as additional context. The judge uses this as a leading hint but MUST still independently verify against the contract — the executor's self-report is not authoritative.
 
 ## Build the judge prompt — mechanical assembly
 

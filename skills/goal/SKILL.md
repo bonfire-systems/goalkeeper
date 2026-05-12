@@ -5,6 +5,26 @@ description: Set or check status of a durable goalkeeper goal. Use this skill wh
 
 You are operating the **goalkeeper** skill — durable, contract-driven goal execution with judge-gated completion. This skill is invoked when the user runs `/goal` or `/goal "<objective>"`.
 
+## Execution modes (v0.3+)
+
+Goalkeeper goals run in one of two execution modes depending on how the goal was activated:
+
+### Inline mode (standalone `/goal` / `/goal "<objective>"`)
+
+Main conversation context runs the full Execution Loop (do work → checkpoint → run validator → invoke judge → branch on verdict). Use ScheduleWakeup to pace iterations across long-running validators. This is the default when the user invokes `/goal` directly.
+
+### Subagent mode (chain-driven via `/goal-chain`)
+
+When `/goal-chain` is the orchestrator, the chain spawns a **fresh-context executor subagent** per goal. Main context only orchestrates — it does NOT do the per-goal implementation work. The executor subagent reads contract + log, does the work end-to-end, runs validator, and returns a structured summary. Main context then spawns the judge subagent, applies the verdict, and either advances the cursor or re-spawns the executor with the judge's fix-list.
+
+This is the load-bearing change in v0.3 that lets multi-goal chains run autonomously without main context aging out. Main context cost per goal drops from "all the work + judge spawn" (tens of thousands of tokens accumulating per goal) to "executor return + judge spawn" (~10K tokens per goal, flat). A 9-goal chain that previously needed 9 fresh sessions can now complete in one main-context session.
+
+The protocol described in the Execution Loop section below applies in BOTH modes — the difference is who runs it:
+- Inline mode: main conversation runs the loop, with ScheduleWakeup pacing.
+- Subagent mode: each goal's executor subagent runs the loop in its own context, with no ScheduleWakeup needed (the subagent runs end-to-end then returns).
+
+Both modes use the same state.json / log.md / active.json files. The only mode-specific divergence is whether the judge is invoked by the loop (inline) or by the chain orchestrator after executor return (subagent). See `goal-chain/SKILL.md` Steps 6–8 for the subagent-mode orchestration details.
+
 ## Canonical state shapes
 
 Single source of truth for the JSON files goalkeeper reads and writes. Other skills (goal-clear, goal-judge, goal-chain) MUST conform to these shapes — drift here is the source of cross-skill bugs.
@@ -169,15 +189,22 @@ This block runs on activation AND on every ScheduleWakeup re-entry.
 6. **Run validator:** execute `validator.command` from frontmatter. Capture stdout+stderr. Honor `timeout_seconds`. Interpret per `validator.success` (default `exit_zero`). Update `state.last_validator_result` to one of `pass`, `fail: <short reason>`. Update `state.last_checkpoint_at`.
 
 7. **Branch on validator:**
-   - **Failed:** append a one-line failure summary to log. Schedule next iteration via `ScheduleWakeup` with delay from `wakeup_seconds` (contract) or pick cache-aware default (see below). Wakeup prompt:
-     ```
-     Continue active goalkeeper goal — read .claude/goals/active.json and proceed per the goal skill execution loop.
-     ```
-   - **Passed:** invoke the **goal-judge** skill (do this by writing a sentinel `.claude/goals/<slug>/.judge-pending` and immediately running the judge skill in this same turn). Judge will read contract + `git diff` + log and return approve/reject.
+   - **Failed:**
+     - *Inline mode:* append a one-line failure summary to log. Schedule next iteration via `ScheduleWakeup` with delay from `wakeup_seconds` (contract) or pick cache-aware default (see below). Wakeup prompt:
+       ```
+       Continue active goalkeeper goal — read .claude/goals/active.json and proceed per the goal skill execution loop.
+       ```
+     - *Subagent mode:* fix the failure and re-run (validator failures inside a subagent don't need ScheduleWakeup — the subagent runs end-to-end in one turn). If after a reasonable attempt budget (~3-5 inner attempts) the validator still fails, return to the chain orchestrator with `STATUS: validator_fail` + a clear BLOCKERS field (per `goal-chain/SKILL.md` Step 6 directive). Main context handles the user-surface.
+   - **Passed:**
+     - *Inline mode:* invoke the **goal-judge** skill (do this by writing a sentinel `.claude/goals/<slug>/.judge-pending` and immediately running the judge skill in this same turn). Judge will read contract + `git diff` + log and return approve/reject.
+     - *Subagent mode:* do NOT invoke the judge yourself. Return to the chain orchestrator with `STATUS: validator_pass` + the structured summary fields. Main context spawns the judge and applies the verdict.
 
-8. **Branch on judge verdict** (judge writes verdict to `state.last_judge_verdict` and a fix-list to `log.md` if reject):
+8. **Branch on judge verdict** *(inline mode only — in subagent mode the chain orchestrator handles this section per `goal-chain/SKILL.md` Step 8)*:
+
+   Judge writes verdict to `state.last_judge_verdict` and a fix-list to `log.md` if reject.
+
    - **Approve:**
-     - If `.claude/goals/chain.json` exists and contains the active slug at the cursor, defer to the **goal-chain** skill to advance the cursor and activate the next goal.
+     - If `.claude/goals/chain.json` exists and contains the active slug at the cursor: this should not happen in inline mode, but if it does, defer to the **goal-chain** skill advance flow.
      - Otherwise: set `state.status=done`, append `## <ISO8601> — done` to log, null out `active.json` (`{"slug": null}`). Surface a one-paragraph completion summary to the user.
    - **Reject:**
      - Append the judge's fix-list to log under `## <ISO8601> — judge rejected`.

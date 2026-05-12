@@ -86,9 +86,83 @@ Initialize that goal's `state.json` per the canonical state.json shape (status=a
 Chain: <name>. Starting first goal: <slug>.
 ```
 
-### 6. Hand off to the goal skill
+### 6. Spawn the executor subagent
 
-Re-enter the **goal** skill execution loop on the activated slug. Real work begins immediately in this turn.
+**v0.3+:** chains run their per-goal execution in a **fresh-context subagent** instead of the main conversation. Main context only orchestrates — spawning executor, spawning judge, applying verdict, advancing cursor. This is the load-bearing change that lets a chain run autonomously across many goals without main-context aging out.
+
+Use the Agent tool with `subagent_type: general-purpose`. Pass a self-contained prompt:
+
+1. **The full `contract.md`** — verbatim.
+2. **The full `log.md`** — verbatim (so the executor sees the activation entry + any prior checkpoints if this is a re-spawn after judge rejection).
+3. **Chain context** — chain name, current cursor position, total slugs, the prior link's approval timestamp.
+4. **Repo state** — `git rev-parse HEAD`, `git status --porcelain` (first 20 lines).
+5. **The directive** — verbatim, in this exact format:
+
+```
+You are the goalkeeper EXECUTOR SUBAGENT for goal `<slug>` (chain step <N>/<total>).
+
+Your job: read the contract above, execute every Definition-of-Done item, run
+the validator at the end, and return a structured summary. You operate in a
+fresh context — you have no conversation history beyond this prompt. The
+contract is your spec; do not improvise outside it.
+
+Execution loop:
+  1. Read the contract carefully. Identify the implementation work required.
+  2. Do the work. Edit/write files as needed. Follow the contract's non-goals
+     and anti-placeholder rule strictly.
+  3. Append checkpoint entries to `.claude/goals/<slug>/log.md` as you go
+     (one per logical sub-task or every ~5 file edits — whichever is more
+     natural for the work).
+  4. Run the validator: `<validator.command>`. Capture stdout+stderr.
+  5. If validator FAILS: diagnose, fix, re-run. Repeat up to a reasonable
+     attempt budget (~3-5 inner attempts). If still failing, document why
+     in the log and return with status=blocked.
+  6. If validator PASSES: append a "validator passed" entry to the log,
+     update `.claude/goals/<slug>/state.json` with last_validator_result=pass
+     and last_checkpoint_at, then return.
+
+DO NOT spawn the judge yourself. The chain orchestrator handles that step.
+DO NOT advance the chain cursor. DO NOT modify chain.json, active.json, or
+the goals_completed list. DO NOT activate the next goal. Just do the work
+for THIS goal and return.
+
+Return ONCE with this structured output:
+
+STATUS: validator_pass | validator_fail | blocked | needs_clarification
+
+SUMMARY:
+<3-8 sentences describing what you did: files touched, decisions made, any
+non-obvious tradeoffs, anything the judge should pay particular attention to>
+
+VALIDATOR_OUTPUT_TAIL:
+<last ~40 lines of the validator's stdout+stderr — let the judge see the
+actual pass/fail signal directly>
+
+FILES_CHANGED:
+<bulleted list of paths modified relative to repo root, plus brief one-line
+note per file about what changed>
+
+BLOCKERS: (only if status != validator_pass)
+<specific reason: which DoD item, which file, what's missing or wrong>
+```
+
+### 7. Receive executor return, spawn judge
+
+When the executor subagent returns its structured summary:
+
+- **STATUS = blocked or needs_clarification** — append a `## <ISO8601> — executor blocked` entry to the goal's log with the BLOCKERS verbatim. Set `state.status = needs_human`. Pause chain (do NOT abort). Tell the user: "Executor subagent surfaced a blocker on `<slug>`: <one-line>. See `.claude/goals/<slug>/log.md`. Resolve and run `/goal-resume` to re-spawn the executor."
+
+- **STATUS = validator_fail** — same as blocked, but the surface message names the failing validator path so the user knows it's a test/lint issue specifically.
+
+- **STATUS = validator_pass** — spawn the judge per the `goal-judge` SKILL. Pass the executor's SUMMARY + VALIDATOR_OUTPUT_TAIL + FILES_CHANGED as part of the judge brief. The judge returns approve or reject.
+
+### 8. Apply judge verdict
+
+- **APPROVE:** advance per existing Advance mode (mark state.status=done, append link_approval, increment cursor, branch on end-of-chain or next goal).
+
+- **REJECT:** the judge wrote a fix-list to the goal's log. Increment `state.rejection_count`. If under `max_rejections`, **re-spawn the executor subagent** with the original contract + log (which now includes the judge's fix-list) + an additional directive: "Address the judge's fix-list from the most recent `## <ISO8601> — judge rejected` block. Then proceed per the standard execution loop." Loop back to step 7.
+
+- **REJECT exceeding max_rejections:** set `state.status = needs_human`, do NOT advance, surface to user.
 
 ## Advance mode
 
@@ -127,7 +201,7 @@ The judge skill on approve already appended `{"slug": <approved>, "approved_at":
   - Tell the user: "Chain `<name>` complete. <N> goals approved sequentially. See `chain.json.link_approvals` for per-link approval timestamps."
   - Stop.
 
-- **More goals remain:** activate next.
+- **More goals remain:** activate next + spawn executor subagent.
   - `next_slug = slugs[cursor]`.
   - **Capture a fresh git baseline for the next link** (HEAD has likely not moved, but dirty paths have grown to include the previous link's output):
     - `git rev-parse HEAD` → `started_at_commit`
@@ -140,7 +214,7 @@ The judge skill on approve already appended `{"slug": <approved>, "approved_at":
     Baseline commit: <short SHA>.
     Pre-existing dirty paths at activation: <list>.
     ```
-  - **Update `.claude/goals/active.json` LAST** to point to `next_slug`:
+  - **Update `.claude/goals/active.json`** to point to `next_slug`:
     ```json
     {
       "slug": "<next_slug>",
@@ -148,8 +222,10 @@ The judge skill on approve already appended `{"slug": <approved>, "approved_at":
       "chain": "<chain name>"
     }
     ```
-    Writing active.json last is intentional — it's the pointer used by every other skill to find the current goal. If steps 1-4 partially fail, leaving active.json pointing at the previous (now-done) slug is a more recoverable state than leaving it stale-pointing-at-next-with-no-state.json.
-  - Re-enter the **goal** skill execution loop on `next_slug`. Real work begins immediately.
+    Writing active.json before spawning the executor is intentional — if the executor subagent crashes or is killed, active.json still points at the right slug and `/goal-resume` works.
+  - **Spawn the executor subagent for `next_slug`** per Start-mode Step 6 above. Same prompt structure: contract + log + chain context + repo state + executor directive. When the executor returns, proceed per Start-mode Steps 7–8 (receive return, spawn judge, apply verdict, loop back here if more goals remain).
+
+**Important — main context responsibilities:** the chain orchestrator NEVER does the per-goal implementation work itself. It only: spawns executor, receives executor return, spawns judge, receives judge verdict, writes state files, and either advances cursor or re-spawns executor (on judge reject within budget) or pauses (on max rejections / blocker). This keeps main context cost ~10K tokens per goal regardless of how big the goal's actual work was.
 
 ## Recovery from interrupted advance
 
