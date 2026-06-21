@@ -589,6 +589,6 @@ judge-approved).
   1200-1800s for slow validators or idle waits, avoid 300s) so
   autonomous loops don't burn the Anthropic prompt cache TTL.
 
-[Unreleased]: https://github.com/itsuzef/goalkeeper/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/itsuzef/goalkeeper/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/itsuzef/goalkeeper/releases/tag/v0.1.0
+[Unreleased]: https://github.com/bonfire-systems/goalkeeper/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/bonfire-systems/goalkeeper/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/bonfire-systems/goalkeeper/releases/tag/v0.1.0

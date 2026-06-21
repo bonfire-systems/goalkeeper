@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/itsuzef/goalkeeper/schemas/contract.schema.json",
+  "$id": "https://github.com/bonfire-systems/goalkeeper/schemas/contract.schema.json",
   "title": "Goalkeeper Contract",
   "description": "Frontmatter schema for a goalkeeper contract.md file. The body of the contract.md (after frontmatter) is free-form context, file pointers, and constraints in the spirit of a Ralph PROMPT.md.",
   "type": "object",

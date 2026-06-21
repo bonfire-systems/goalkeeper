@@ -4,7 +4,7 @@
   <h3>Set durable goals. Approve at the gate.</h3>
   <p>Contract-driven autonomous goal execution for <a href="https://docs.claude.com/en/docs/claude-code/overview">Claude Code</a>.<br>A subagent judge gates completion against an explicit Definition of Done.</p>
   <p>
-    <a href="https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml"><img alt="test" src="https://github.com/itsuzef/goalkeeper/actions/workflows/test.yml/badge.svg"></a>
+    <a href="https://github.com/bonfire-systems/goalkeeper/actions/workflows/test.yml"><img alt="test" src="https://github.com/bonfire-systems/goalkeeper/actions/workflows/test.yml/badge.svg"></a>
     <img alt="license" src="https://img.shields.io/badge/license-MIT-0E7C66">
     <img alt="version" src="https://img.shields.io/badge/version-0.1.11-0E7C66">
     <img alt="claude-code" src="https://img.shields.io/badge/claude--code-plugin-0E7C66">
@@ -56,7 +56,7 @@ Add the goalkeeper marketplace, then install the plugin:
 
 ```bash
 # inside Claude Code
-/plugin marketplace add itsuzef/goalkeeper
+/plugin marketplace add bonfire-systems/goalkeeper
 /plugin install goalkeeper@goalkeeper
 ```
 

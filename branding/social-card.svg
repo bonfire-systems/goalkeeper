@@ -57,7 +57,7 @@
         font-family="ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace"
         font-size="22"
         font-weight="500"
-        fill="#6B7280">github.com/itsuzef/goalkeeper</text>
+        fill="#6B7280">github.com/bonfire-systems/goalkeeper</text>
 
   <!-- Subtle right-side ornament: tall gate posts as a quiet visual rhyme -->
   <g transform="translate(900, 100)" opacity="0.15">

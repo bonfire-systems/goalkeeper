@@ -2,7 +2,7 @@
 
 Real reject-then-approve cycle on a benchmark test in a private TypeScript codebase. **3 minutes wall-clock from goal activation to judge approval.** The validator passed both rounds. Only the judge caught the placeholder.
 
-This transcript backs the elevator-pitch claim from the README: *a passing validator is not a finished feature*. The example is concrete enough to verify yourself — every command and verdict is reproducible against the live [`itsuzef/goalkeeper`](https://github.com/itsuzef/goalkeeper) plugin v0.1.11.
+This transcript backs the elevator-pitch claim from the README: *a passing validator is not a finished feature*. The example is concrete enough to verify yourself — every command and verdict is reproducible against the live [`bonfire-systems/goalkeeper`](https://github.com/bonfire-systems/goalkeeper) plugin v0.1.11.
 
 ---
 
@@ -204,7 +204,7 @@ Install goalkeeper, write a contract with a strict DoD against a small change in
 
 ```bash
 # Inside Claude Code
-/plugin marketplace add itsuzef/goalkeeper
+/plugin marketplace add bonfire-systems/goalkeeper
 /plugin install goalkeeper@goalkeeper
 ```
 

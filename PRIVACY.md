@@ -35,4 +35,4 @@ When the executing agent or the judge subagent does its work, the inputs and out
 
 ## Questions
 
-Open an issue at [github.com/itsuzef/goalkeeper/issues](https://github.com/itsuzef/goalkeeper/issues) or email itsuzef@gmail.com.
+Open an issue at [github.com/bonfire-systems/goalkeeper/issues](https://github.com/bonfire-systems/goalkeeper/issues) or email itsuzef@gmail.com.
