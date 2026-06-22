@@ -3,9 +3,9 @@
   "name": "goalkeeper",
   "description": "Durable goal-following for Claude Code: contracts with definition-of-done, subagent judge gates, and linear chains.",
   "owner": {
-    "name": "Youssef Hemimy",
-    "email": "itsuzef@gmail.com",
-    "url": "https://github.com/itsuzef"
+    "name": "Bonfire Systems",
+    "email": "hello@bonfiresystems.com",
+    "url": "https://github.com/bonfire-systems"
   },
   "plugins": [
     {
